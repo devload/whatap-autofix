@@ -17,7 +17,10 @@ public class AutofixProperties {
         private String apiUrl = "https://api.whatap.io";
         private String apiToken;
         private String pcode;
+        private String productType = "java";  // java, browser, nodejs, python, etc.
+        private String projectName;
         private int pollingIntervalSeconds = 30;
+        private int aiScoutIntervalCycles = 4; // AI Scout: N번 폴링마다 AI 분석
     }
 
     @Data

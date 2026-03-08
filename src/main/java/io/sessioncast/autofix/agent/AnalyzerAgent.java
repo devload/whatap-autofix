@@ -189,6 +189,19 @@ public class AnalyzerAgent {
 
     private String formatMetrics(Metric m) {
         if (m == null) return "메트릭 데이터 없음";
+
+        // raw 데이터가 있으면 전체를 보여줌 (프로젝트 타입 무관)
+        Map<String, Object> raw = m.getRawData();
+        if (raw != null && !raw.isEmpty()) {
+            StringBuilder sb = new StringBuilder();
+            if (m.getProjectType() != null) {
+                sb.append("프로젝트 타입: ").append(m.getProjectType()).append("\n");
+            }
+            raw.forEach((k, v) -> sb.append(String.format("%s: %s\n", k, v)));
+            return sb.toString();
+        }
+
+        // 폴백: APM 형식
         return String.format(
                 "CPU: %.1f%%, Memory: %.1f%%, TPS: %d, ErrorRate: %.1f%%, ActiveTx: %d, ResponseTime: %dms, DBPool: %.1f%%",
                 m.getCpu(), m.getMemory(), m.getTps(), m.getErrorRate(),

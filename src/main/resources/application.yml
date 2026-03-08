@@ -7,6 +7,7 @@ autofix:
     api-token: ${WHATAP_API_TOKEN:}
     pcode: ${WHATAP_PCODE:}
     polling-interval-seconds: 30
+    ai-scout-interval-cycles: 4  # AI Scout: N번 폴링마다 AI 분석 (4 = 2분마다)
 
   github:
     api-url: https://api.github.com

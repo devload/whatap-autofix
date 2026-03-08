@@ -1,5 +1,6 @@
 package io.sessioncast.autofix.controller;
 
+import io.sessioncast.autofix.agent.ScoutAgent;
 import io.sessioncast.autofix.client.WhatapAuthClient;
 import io.sessioncast.autofix.client.WhatapAuthClient.LoginResult;
 import io.sessioncast.autofix.client.WhatapAuthClient.ProjectInfo;
@@ -29,6 +30,7 @@ public class AuthController {
     private final WhatapAuthClient whatapAuthClient;
     private final AutofixProperties props;
     private final WebClientConfig webClientConfig;
+    private final ScoutAgent scoutAgent;
 
     @Autowired(required = false)
     private SessionCastClient sessionCastClient;
@@ -83,17 +85,26 @@ public class AuthController {
         // AutofixProperties 업데이트
         props.getWhatap().setApiToken(request.getProjectApiToken());
         props.getWhatap().setPcode(String.valueOf(request.getPcode()));
+        props.getWhatap().setProjectName(request.getProjectName());
+        if (request.getProductType() != null && !request.getProductType().isBlank()) {
+            props.getWhatap().setProductType(request.getProductType());
+        }
 
         // WebClient 재구성
         webClientConfig.refreshWhatapClient(props);
 
-        log.info("WhaTap 프로젝트 선택 완료 — pcode: {}, name: {}",
-                request.getPcode(), request.getProjectName());
+        // 프로젝트 변경 시 메트릭 프로파일 초기화 (AI가 재탐색)
+        scoutAgent.resetProfile();
+
+        String productType = props.getWhatap().getProductType();
+        log.info("WhaTap 프로젝트 선택 완료 — pcode: {}, name: {}, type: {}",
+                request.getPcode(), request.getProjectName(), productType);
 
         return ResponseEntity.ok(Map.of(
                 "success", true,
                 "pcode", request.getPcode(),
                 "projectName", request.getProjectName() != null ? request.getProjectName() : "",
+                "productType", productType != null ? productType : "java",
                 "message", "프로젝트 연결 완료! Scout Agent가 모니터링을 시작합니다."
         ));
     }
@@ -131,7 +142,9 @@ public class AuthController {
         return Map.of(
                 "connected", tokenSet && pcodeSet,
                 "pcode", pcodeSet ? props.getWhatap().getPcode() : "",
-                "tokenConfigured", tokenSet
+                "tokenConfigured", tokenSet,
+                "productType", props.getWhatap().getProductType() != null ? props.getWhatap().getProductType() : "java",
+                "projectName", props.getWhatap().getProjectName() != null ? props.getWhatap().getProjectName() : ""
         );
     }
 
@@ -151,5 +164,6 @@ public class AuthController {
         private long pcode;
         private String projectApiToken;
         private String projectName;
+        private String productType;  // java, browser, nodejs, python, etc.
     }
 }

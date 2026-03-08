@@ -58,12 +58,14 @@
         </ol>
       </div>
       <div>
-        <h3 class="font-bold text-sm mb-2 text-gray-500">실제 분석 사례</h3>
+        <h3 class="font-bold text-sm mb-2 text-gray-500">AI Scout & 분석 사례</h3>
         <ol start="8" class="space-y-1 text-sm text-gray-600">
-          <li><a href="#case-cpu" class="hover:text-sky-600">8. CPU_HIGH 파이프라인 상세</a></li>
-          <li><a href="#case-slow" class="hover:text-sky-600">9. RESPONSE_SLOW 파이프라인 상세</a></li>
-          <li><a href="#case-inprogress" class="hover:text-sky-600">10. 진행 중(IN_PROGRESS) 파이프라인</a></li>
-          <li><a href="#architecture" class="hover:text-sky-600">11. 파이프라인 흐름 구조</a></li>
+          <li><a href="#ai-scout" class="hover:text-sky-600">8. AI Scout — 지능형 메트릭 분석</a></li>
+          <li><a href="#case-cpu" class="hover:text-sky-600">9. CPU_HIGH 파이프라인</a></li>
+          <li><a href="#case-slow" class="hover:text-sky-600">10. RESPONSE_SLOW 파이프라인</a></li>
+          <li><a href="#case-inprogress" class="hover:text-sky-600">11. 진행 중(IN_PROGRESS)</a></li>
+          <li><a href="#case-aiscout" class="hover:text-sky-600">12. AI Scout 분석 사례</a></li>
+          <li><a href="#architecture" class="hover:text-sky-600">13. 파이프라인 흐름 구조</a></li>
         </ol>
       </div>
     </div>
@@ -453,7 +455,7 @@
   <!-- ═══════════════════════════════════════ -->
   <section id="case-cpu" class="mb-14 border-t pt-10">
     <div class="flex items-start gap-4 mb-4">
-      <div class="step-num bg-red-600 text-white">8</div>
+      <div class="step-num bg-red-600 text-white">9</div>
       <div>
         <h2 class="text-xl font-bold">CPU_HIGH 파이프라인 상세</h2>
         <p class="text-gray-500 text-sm mt-1">CPU 사용률 임계값 초과 — 자동 감지 → AI 분석 → AI HTML 수정안 → 시뮬레이션 배포 → 검증</p>
@@ -503,7 +505,7 @@
   <!-- ═══════════════════════════════════════ -->
   <section id="case-slow" class="mb-14 border-t pt-10">
     <div class="flex items-start gap-4 mb-4">
-      <div class="step-num bg-yellow-500 text-white">9</div>
+      <div class="step-num bg-yellow-500 text-white">10</div>
       <div>
         <h2 class="text-xl font-bold">RESPONSE_SLOW 파이프라인 상세</h2>
         <p class="text-gray-500 text-sm mt-1">응답 시간 지연 감지 — AI 원인 분석 + AI HTML 권장 조치</p>
@@ -549,7 +551,7 @@
   <!-- ═══════════════════════════════════════ -->
   <section id="case-inprogress" class="mb-14 border-t pt-10">
     <div class="flex items-start gap-4 mb-4">
-      <div class="step-num bg-blue-500 text-white">10</div>
+      <div class="step-num bg-blue-500 text-white">11</div>
       <div>
         <h2 class="text-xl font-bold">진행 중(IN_PROGRESS) 파이프라인</h2>
         <p class="text-gray-500 text-sm mt-1">아직 모든 단계를 완료하지 않은 파이프라인</p>
@@ -580,11 +582,388 @@
   </section>
 
   <!-- ═══════════════════════════════════════ -->
+  <!-- AI Scout — 지능형 메트릭 분석 -->
+  <!-- ═══════════════════════════════════════ -->
+  <section id="ai-scout" class="mb-14 border-t pt-10">
+    <div class="flex items-start gap-4 mb-4">
+      <div class="step-num bg-purple-600 text-white">8</div>
+      <div>
+        <h2 class="text-xl font-bold">AI Scout — 지능형 메트릭 분석</h2>
+        <p class="text-gray-500 text-sm mt-1">프로젝트 타입에 무관하게 AI가 자동으로 메트릭을 탐색하고 이상을 감지합니다</p>
+      </div>
+    </div>
+
+    <div class="bg-purple-50 border border-purple-200 rounded-lg p-4 text-sm mb-6">
+      <p class="mb-2"><strong>기존 방식의 한계:</strong> APM(CPU, Memory, TPS 등) 메트릭만 하드코딩된 임계값으로 비교 — Browser, DB, Kubernetes 등 다른 프로젝트 타입은 지원 불가</p>
+      <p><strong>AI Scout 방식:</strong> AI가 프로젝트를 분석하여 어떤 메트릭이 중요한지 자동 판단, 임계값과 MXQL 쿼리까지 생성</p>
+    </div>
+
+    <h3 class="font-bold mb-3">2단계 동작 방식</h3>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+      <div class="bg-white border-2 border-purple-300 rounded-xl p-5">
+        <div class="font-bold text-purple-700 mb-2">1단계: Discovery (메트릭 탐색)</div>
+        <ul class="text-sm text-gray-600 space-y-1 list-disc ml-4">
+          <li>프로젝트 연결 시 WhaTap Spot API 1회 호출</li>
+          <li>AI에게 "이 프로젝트에서 무엇을 모니터링해야 하는가?" 요청</li>
+          <li>AI가 프로젝트 타입 인식 + 핵심 메트릭 10개 선정</li>
+          <li>각 메트릭의 WARNING/CRITICAL 임계값 설정</li>
+          <li>MXQL 쿼리 자동 생성 (상세 데이터 조회용)</li>
+        </ul>
+      </div>
+      <div class="bg-white border-2 border-sky-300 rounded-xl p-5">
+        <div class="font-bold text-sky-700 mb-2">2단계: Monitoring (선별 모니터링)</div>
+        <ul class="text-sm text-gray-600 space-y-1 list-disc ml-4">
+          <li>매 폴링마다 프로파일의 메트릭만 확인</li>
+          <li>임계값 초과 항목이 있을 때만 AI 호출 (비용 절감)</li>
+          <li>초과 항목에 대해 MXQL 시계열 보강 조회</li>
+          <li>선별된 데이터만 AI에게 전달 (경량화)</li>
+          <li>이슈 감지 시 파이프라인 자동 생성</li>
+        </ul>
+      </div>
+    </div>
+
+    <h3 class="font-bold mb-3">프로젝트별 AI Discovery 결과</h3>
+    <p class="text-sm text-gray-600 mb-4">AI가 프로젝트 타입에 따라 자동으로 선정한 모니터링 대상 메트릭:</p>
+
+    <div class="space-y-4 mb-6">
+      <!-- Java APM -->
+      <div class="bg-white border rounded-xl p-4">
+        <div class="flex items-center gap-2 mb-2">
+          <span class="bg-blue-100 text-blue-700 text-xs font-bold px-2 py-0.5 rounded">Java APM</span>
+          <span class="text-sm font-semibold">Java APM Demo</span>
+        </div>
+        <div class="flex flex-wrap gap-2 text-xs">
+          <span class="bg-gray-100 px-2 py-1 rounded">rtime <span class="text-orange-600">warn:1000ms</span></span>
+          <span class="bg-gray-100 px-2 py-1 rounded">apdex <span class="text-orange-600">warn:0.7</span></span>
+          <span class="bg-gray-100 px-2 py-1 rounded">cpu <span class="text-orange-600">warn:70%</span></span>
+          <span class="bg-gray-100 px-2 py-1 rounded">actx <span class="text-orange-600">warn:50</span></span>
+          <span class="bg-gray-100 px-2 py-1 rounded">dbconn_act <span class="text-orange-600">warn:800</span></span>
+          <span class="bg-gray-100 px-2 py-1 rounded">dbconn_ratio <span class="text-orange-600">warn:70%</span></span>
+          <span class="bg-gray-100 px-2 py-1 rounded">tps</span>
+          <span class="bg-gray-100 px-2 py-1 rounded">user</span>
+          <span class="bg-gray-100 px-2 py-1 rounded">act_httpc</span>
+          <span class="bg-gray-100 px-2 py-1 rounded">act_sql</span>
+        </div>
+      </div>
+
+      <!-- Node.js APM -->
+      <div class="bg-white border rounded-xl p-4">
+        <div class="flex items-center gap-2 mb-2">
+          <span class="bg-green-100 text-green-700 text-xs font-bold px-2 py-0.5 rounded">Node.js APM</span>
+          <span class="text-sm font-semibold">Node.js APM Demo</span>
+        </div>
+        <div class="flex flex-wrap gap-2 text-xs">
+          <span class="bg-gray-100 px-2 py-1 rounded">cpu</span>
+          <span class="bg-gray-100 px-2 py-1 rounded">memory</span>
+          <span class="bg-gray-100 px-2 py-1 rounded">rtime</span>
+          <span class="bg-gray-100 px-2 py-1 rounded">tps</span>
+          <span class="bg-gray-100 px-2 py-1 rounded">error_rate</span>
+          <span class="bg-gray-100 px-2 py-1 rounded">actx</span>
+          <span class="bg-gray-100 px-2 py-1 rounded">dbconn_act</span>
+          <span class="bg-gray-100 px-2 py-1 rounded">apdex</span>
+          <span class="bg-green-100 text-green-700 px-2 py-1 rounded font-bold">heap_usage</span>
+          <span class="bg-green-100 text-green-700 px-2 py-1 rounded font-bold">event_loop_lag</span>
+        </div>
+        <p class="text-xs text-gray-500 mt-2">Node.js 특화 메트릭(heap_usage, event_loop_lag)을 AI가 자동 선정</p>
+      </div>
+
+      <!-- Browser -->
+      <div class="bg-white border rounded-xl p-4">
+        <div class="flex items-center gap-2 mb-2">
+          <span class="bg-orange-100 text-orange-700 text-xs font-bold px-2 py-0.5 rounded">Browser</span>
+          <span class="text-sm font-semibold">Browser Monitoring Demo</span>
+        </div>
+        <div class="flex flex-wrap gap-2 text-xs">
+          <span class="bg-orange-100 text-orange-700 px-2 py-1 rounded font-bold">LCP <span class="text-orange-600">warn:2500ms</span></span>
+          <span class="bg-orange-100 text-orange-700 px-2 py-1 rounded font-bold">FID <span class="text-orange-600">warn:100ms</span></span>
+          <span class="bg-orange-100 text-orange-700 px-2 py-1 rounded font-bold">CLS <span class="text-orange-600">warn:0.1</span></span>
+          <span class="bg-orange-100 text-orange-700 px-2 py-1 rounded font-bold">FCP</span>
+          <span class="bg-orange-100 text-orange-700 px-2 py-1 rounded font-bold">TTFB</span>
+          <span class="bg-gray-100 px-2 py-1 rounded">page_load_time</span>
+          <span class="bg-gray-100 px-2 py-1 rounded">ajax_time</span>
+          <span class="bg-gray-100 px-2 py-1 rounded">js_error_count</span>
+          <span class="bg-gray-100 px-2 py-1 rounded">resource_load_time</span>
+          <span class="bg-gray-100 px-2 py-1 rounded">user</span>
+        </div>
+        <p class="text-xs text-gray-500 mt-2">Core Web Vitals(LCP, FID, CLS)와 브라우저 성능 메트릭을 자동 선정</p>
+      </div>
+
+      <!-- PostgreSQL DB -->
+      <div class="bg-white border rounded-xl p-4">
+        <div class="flex items-center gap-2 mb-2">
+          <span class="bg-indigo-100 text-indigo-700 text-xs font-bold px-2 py-0.5 rounded">PostgreSQL DB</span>
+          <span class="text-sm font-semibold">PostgreSQL Monitoring Demo</span>
+        </div>
+        <div class="flex flex-wrap gap-2 text-xs">
+          <span class="bg-indigo-100 text-indigo-700 px-2 py-1 rounded font-bold">active_sessions</span>
+          <span class="bg-indigo-100 text-indigo-700 px-2 py-1 rounded font-bold">lock_wait_sessions</span>
+          <span class="bg-indigo-100 text-indigo-700 px-2 py-1 rounded font-bold">slow_query</span>
+          <span class="bg-indigo-100 text-indigo-700 px-2 py-1 rounded font-bold">buffer_hit_ratio</span>
+          <span class="bg-indigo-100 text-indigo-700 px-2 py-1 rounded font-bold">deadlock_count</span>
+          <span class="bg-indigo-100 text-indigo-700 px-2 py-1 rounded font-bold">connection_count</span>
+          <span class="bg-gray-100 px-2 py-1 rounded">cpu</span>
+          <span class="bg-gray-100 px-2 py-1 rounded">memory</span>
+          <span class="bg-gray-100 px-2 py-1 rounded">disk_usage</span>
+          <span class="bg-gray-100 px-2 py-1 rounded">txn_commits_per_sec</span>
+        </div>
+        <p class="text-xs text-gray-500 mt-2">DB 특화 메트릭(active_sessions, lock_wait, slow_query, deadlock)을 자동 선정</p>
+      </div>
+
+      <!-- Python APM -->
+      <div class="bg-white border rounded-xl p-4">
+        <div class="flex items-center gap-2 mb-2">
+          <span class="bg-yellow-100 text-yellow-700 text-xs font-bold px-2 py-0.5 rounded">Python APM</span>
+          <span class="text-sm font-semibold">Python APM Demo</span>
+        </div>
+        <div class="flex flex-wrap gap-2 text-xs">
+          <span class="bg-gray-100 px-2 py-1 rounded">cpu</span>
+          <span class="bg-gray-100 px-2 py-1 rounded">apdex</span>
+          <span class="bg-gray-100 px-2 py-1 rounded">rtime</span>
+          <span class="bg-gray-100 px-2 py-1 rounded">tps</span>
+          <span class="bg-gray-100 px-2 py-1 rounded">actx</span>
+          <span class="bg-gray-100 px-2 py-1 rounded">txcount</span>
+          <span class="bg-gray-100 px-2 py-1 rounded">act_agent</span>
+          <span class="bg-gray-100 px-2 py-1 rounded">user</span>
+          <span class="bg-gray-100 px-2 py-1 rounded">cpucore</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="bg-gray-50 border rounded-lg p-4 text-sm">
+      <p><strong>핵심 포인트:</strong> 코드에 메트릭 종류를 하드코딩하지 않습니다. AI가 WhaTap Spot API 응답을 분석하여 프로젝트에 맞는 메트릭을 자동으로 찾고, 임계값과 MXQL 쿼리를 생성합니다. 새로운 프로젝트 타입이 추가되어도 코드 변경 없이 동작합니다.</p>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════ -->
+  <!-- AI Scout 분석 사례 -->
+  <!-- ═══════════════════════════════════════ -->
+  <section id="case-aiscout" class="mb-14 border-t pt-10">
+    <div class="flex items-start gap-4 mb-4">
+      <div class="step-num bg-purple-600 text-white">12</div>
+      <div>
+        <h2 class="text-xl font-bold">AI Scout 분석 사례 (멀티 프로젝트)</h2>
+        <p class="text-gray-500 text-sm mt-1">WhaTap 데모 프로젝트에서 AI Scout가 실제로 감지하고 분석한 이슈들</p>
+      </div>
+    </div>
+
+    <div class="space-y-6">
+      <!-- Case 1: APDEX_LOW -->
+      <div class="bg-white border rounded-xl p-5">
+        <div class="flex items-center gap-2 mb-3">
+          <span class="bg-red-100 text-red-700 text-xs font-bold px-2 py-0.5 rounded">CRITICAL</span>
+          <span class="bg-blue-100 text-blue-700 text-xs px-2 py-0.5 rounded">Java APM</span>
+          <span class="font-semibold">APDEX_LOW</span>
+          <span class="text-xs text-gray-400">— Apdex 0.65</span>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+          <div>
+            <div class="text-xs text-gray-500 mb-1 font-bold">이슈 감지</div>
+            <p class="text-gray-700">Apdex 점수가 0.65로 경고 임계값(0.7) 미만 — 사용자 만족도 심각 저하</p>
+          </div>
+          <div>
+            <div class="text-xs text-gray-500 mb-1 font-bold">AI 근본 원인 분석</div>
+            <p class="text-gray-700">높은 평균 응답시간(2759ms)과 과도한 DB 커넥션 사용(활성 562개/전체 1206개)으로 트랜잭션 처리 지연</p>
+          </div>
+          <div>
+            <div class="text-xs text-gray-500 mb-1 font-bold">AI 수정 제안</div>
+            <p class="text-gray-700">DB 커넥션 풀 사이즈 조정, 유휴 커넥션 정리 정책 설정, 슬로우 쿼리 점검</p>
+          </div>
+        </div>
+        <div class="flex flex-wrap gap-1 mt-3">
+          <span class="text-xs bg-gray-100 px-2 py-0.5 rounded">rtime:2759ms</span>
+          <span class="text-xs bg-gray-100 px-2 py-0.5 rounded">dbconn_act:562</span>
+          <span class="text-xs bg-gray-100 px-2 py-0.5 rounded">dbconn_total:1206</span>
+          <span class="text-xs bg-gray-100 px-2 py-0.5 rounded">actx:26</span>
+          <span class="text-xs bg-gray-100 px-2 py-0.5 rounded">act_httpc:11</span>
+        </div>
+      </div>
+
+      <!-- Case 2: RESPONSE_TIME -->
+      <div class="bg-white border rounded-xl p-5">
+        <div class="flex items-center gap-2 mb-3">
+          <span class="bg-yellow-100 text-yellow-700 text-xs font-bold px-2 py-0.5 rounded">WARNING</span>
+          <span class="bg-blue-100 text-blue-700 text-xs px-2 py-0.5 rounded">Java APM</span>
+          <span class="font-semibold">RESPONSE_TIME</span>
+          <span class="text-xs text-gray-400">— 1729ms</span>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+          <div>
+            <div class="text-xs text-gray-500 mb-1 font-bold">이슈 감지</div>
+            <p class="text-gray-700">평균 응답시간 1729ms로 경고 임계값(1000ms) 초과</p>
+          </div>
+          <div>
+            <div class="text-xs text-gray-500 mb-1 font-bold">AI 근본 원인 분석</div>
+            <p class="text-gray-700">DB 커넥션 풀 포화 및 다수의 활성 HTTP 클라이언트 호출로 응답 시간이 임계값의 1.7배 수준으로 급등</p>
+          </div>
+          <div>
+            <div class="text-xs text-gray-500 mb-1 font-bold">AI 수정 제안</div>
+            <p class="text-gray-700">외부 HTTP 호출 타임아웃 설정 강화, DB 커넥션 풀 최적화, 비동기 처리 전환</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Case 3: APDEX Node.js -->
+      <div class="bg-white border rounded-xl p-5">
+        <div class="flex items-center gap-2 mb-3">
+          <span class="bg-red-100 text-red-700 text-xs font-bold px-2 py-0.5 rounded">CRITICAL</span>
+          <span class="bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded">Node.js APM</span>
+          <span class="font-semibold">APDEX</span>
+          <span class="text-xs text-gray-400">— Apdex 0.73</span>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+          <div>
+            <div class="text-xs text-gray-500 mb-1 font-bold">이슈 감지</div>
+            <p class="text-gray-700">Apdex 점수 0.73으로 경고 임계값(0.7) 근접 — 사용자 만족도 저하 시작</p>
+          </div>
+          <div>
+            <div class="text-xs text-gray-500 mb-1 font-bold">AI 근본 원인 분석</div>
+            <p class="text-gray-700">Node.js 서버의 응답 시간 증가로 APDEX가 임계값에 도달, 일부 오류 응답이 사용자 만족도를 저하</p>
+          </div>
+          <div>
+            <div class="text-xs text-gray-500 mb-1 font-bold">AI 수정 제안</div>
+            <p class="text-gray-700">이벤트 루프 병목 점검, 비동기 I/O 최적화, 응답 시간이 긴 엔드포인트 프로파일링</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Case 4: APDEX_LOW Python -->
+      <div class="bg-white border rounded-xl p-5">
+        <div class="flex items-center gap-2 mb-3">
+          <span class="bg-red-100 text-red-700 text-xs font-bold px-2 py-0.5 rounded">CRITICAL</span>
+          <span class="bg-yellow-100 text-yellow-700 text-xs px-2 py-0.5 rounded">Python APM</span>
+          <span class="font-semibold">APDEX_LOW</span>
+          <span class="text-xs text-gray-400">— Apdex 0.50</span>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+          <div>
+            <div class="text-xs text-gray-500 mb-1 font-bold">이슈 감지</div>
+            <p class="text-gray-700">Apdex 0.50으로 임계치에 도달 — 사용자 만족도가 매우 낮은 상태</p>
+          </div>
+          <div>
+            <div class="text-xs text-gray-500 mb-1 font-bold">AI 근본 원인 분석</div>
+            <p class="text-gray-700">단일 활성 트랜잭션의 응답시간이 1653ms로 과도하게 길어 APDEX 점수가 임계값에 도달</p>
+          </div>
+          <div>
+            <div class="text-xs text-gray-500 mb-1 font-bold">AI 수정 제안</div>
+            <p class="text-gray-700">Python 서버 즉각 점검, GIL 경합 확인, 동기 I/O 병목 비동기 전환</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Case 5: RESPONSE_TIME_HIGH Browser -->
+      <div class="bg-white border rounded-xl p-5">
+        <div class="flex items-center gap-2 mb-3">
+          <span class="bg-yellow-100 text-yellow-700 text-xs font-bold px-2 py-0.5 rounded">WARNING</span>
+          <span class="bg-orange-100 text-orange-700 text-xs px-2 py-0.5 rounded">Browser</span>
+          <span class="font-semibold">RESPONSE_TIME_HIGH</span>
+          <span class="text-xs text-gray-400">— 2759ms</span>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+          <div>
+            <div class="text-xs text-gray-500 mb-1 font-bold">이슈 감지</div>
+            <p class="text-gray-700">브라우저 프로젝트 응답시간 2759ms로 임계값(1000ms)의 2.8배 초과</p>
+          </div>
+          <div>
+            <div class="text-xs text-gray-500 mb-1 font-bold">AI 근본 원인 분석</div>
+            <p class="text-gray-700">소수 사용자(3명)만 접속 중임에도 응답 지연 — 콜드스타트 또는 외부 API 지연 의심</p>
+          </div>
+          <div>
+            <div class="text-xs text-gray-500 mb-1 font-bold">AI 수정 제안</div>
+            <p class="text-gray-700">서버 사이드 렌더링 최적화, 외부 API 호출 캐싱, 정적 리소스 CDN 적용</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Case 6: RESPONSE_TIME Java -->
+      <div class="bg-white border rounded-xl p-5">
+        <div class="flex items-center gap-2 mb-3">
+          <span class="bg-yellow-100 text-yellow-700 text-xs font-bold px-2 py-0.5 rounded">WARNING</span>
+          <span class="bg-blue-100 text-blue-700 text-xs px-2 py-0.5 rounded">Java APM</span>
+          <span class="font-semibold">RESPONSE_TIME</span>
+          <span class="text-xs text-gray-400">— 1436ms</span>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+          <div>
+            <div class="text-xs text-gray-500 mb-1 font-bold">이슈 감지</div>
+            <p class="text-gray-700">평균 응답시간 1436ms로 경고 임계값(1000ms) 초과 — 사용자 경험 저하 우려</p>
+          </div>
+          <div>
+            <div class="text-xs text-gray-500 mb-1 font-bold">AI 근본 원인 분석</div>
+            <p class="text-gray-700">활성 트랜잭션 23개와 HTTP 클라이언트 호출 6개 동시 처리, DB 커넥션 풀 사용률 42%에 달해 외부 의존성 지연</p>
+          </div>
+          <div>
+            <div class="text-xs text-gray-500 mb-1 font-bold">AI 수정 제안</div>
+            <p class="text-gray-700">외부 HTTP 호출 타임아웃 단축, DB 커넥션 풀 사이즈 조정, 캐싱 레이어 도입</p>
+          </div>
+        </div>
+        <div class="flex flex-wrap gap-1 mt-3">
+          <span class="text-xs bg-gray-100 px-2 py-0.5 rounded">rtime:1436ms</span>
+          <span class="text-xs bg-gray-100 px-2 py-0.5 rounded">actx:23</span>
+          <span class="text-xs bg-gray-100 px-2 py-0.5 rounded">act_httpc:6</span>
+          <span class="text-xs bg-gray-100 px-2 py-0.5 rounded">dbconn_act/total:42%</span>
+        </div>
+      </div>
+
+      <!-- Case 7: APDEX Java -->
+      <div class="bg-white border rounded-xl p-5">
+        <div class="flex items-center gap-2 mb-3">
+          <span class="bg-red-100 text-red-700 text-xs font-bold px-2 py-0.5 rounded">CRITICAL</span>
+          <span class="bg-blue-100 text-blue-700 text-xs px-2 py-0.5 rounded">Java APM</span>
+          <span class="font-semibold">APDEX</span>
+          <span class="text-xs text-gray-400">— Apdex 0.64</span>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+          <div>
+            <div class="text-xs text-gray-500 mb-1 font-bold">이슈 감지</div>
+            <p class="text-gray-700">Apdex 0.64로 사용자 만족도 심각 저하 (위험 임계값 0.5~경고 0.7 사이)</p>
+          </div>
+          <div>
+            <div class="text-xs text-gray-500 mb-1 font-bold">AI 근본 원인 분석</div>
+            <p class="text-gray-700">평균 응답 시간 2483ms로 매우 높고, 활성 DB 연결 수(502)가 비정상적으로 높아 DB 커넥션 풀 경합이 주요 원인</p>
+          </div>
+          <div>
+            <div class="text-xs text-gray-500 mb-1 font-bold">AI 수정 제안</div>
+            <p class="text-gray-700">커넥션 풀 최대 크기 확대, 장시간 점유 쿼리 타임아웃 설정, APDEX 목표 기반 SLO 설정</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Case 8: APDEX_SCORE Java -->
+      <div class="bg-white border rounded-xl p-5">
+        <div class="flex items-center gap-2 mb-3">
+          <span class="bg-red-100 text-red-700 text-xs font-bold px-2 py-0.5 rounded">CRITICAL</span>
+          <span class="bg-blue-100 text-blue-700 text-xs px-2 py-0.5 rounded">Java APM</span>
+          <span class="font-semibold">APDEX_SCORE</span>
+          <span class="text-xs text-gray-400">— Apdex 0.70</span>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+          <div>
+            <div class="text-xs text-gray-500 mb-1 font-bold">이슈 감지</div>
+            <p class="text-gray-700">Apdex 점수 0.70으로 경고 기준(0.8) 미만 — 사용자 만족도 크게 저하</p>
+          </div>
+          <div>
+            <div class="text-xs text-gray-500 mb-1 font-bold">AI 근본 원인 분석</div>
+            <p class="text-gray-700">AI 분석 진행 중...</p>
+          </div>
+          <div>
+            <div class="text-xs text-gray-500 mb-1 font-bold">상태</div>
+            <p class="text-blue-600 font-semibold">IN_PROGRESS — Analyzer 단계 실행 중</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="bg-purple-50 border border-purple-200 rounded-lg p-4 text-sm mt-6">
+      <p><strong>WhaTap 데모 프로젝트 지원 범위:</strong> Java APM, Node.js APM, Python APM, Go APM, PHP APM, .NET APM, Browser Monitoring, PostgreSQL, MySQL, MS SQL, Oracle, Redis, MongoDB, Kubernetes, ECS, CloudWatch, Network NPM, Server(GPU) 등 60+ 프로젝트 타입에서 AI Scout가 동작합니다. 프로젝트 타입별 메트릭은 AI가 자동으로 탐색합니다.</p>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════ -->
   <!-- Architecture -->
   <!-- ═══════════════════════════════════════ -->
   <section id="architecture" class="mb-14 border-t pt-10">
     <div class="flex items-start gap-4 mb-4">
-      <div class="step-num bg-gray-700 text-white">11</div>
+      <div class="step-num bg-gray-700 text-white">13</div>
       <div>
         <h2 class="text-xl font-bold">파이프라인 흐름 구조</h2>
         <p class="text-gray-500 text-sm mt-1">5단계 에이전트 파이프라인</p>

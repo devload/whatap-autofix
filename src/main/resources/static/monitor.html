@@ -27,8 +27,8 @@
     <div class="flex items-center gap-2"><span class="text-sm text-gray-500">활성 에이전트</span><span class="text-lg font-bold text-purple-600" id="stat-agents">1</span><span class="text-xs text-gray-400">/ 5</span></div>
   </div>
 
-  <!-- Metric Cards -->
-  <div class="grid grid-cols-6 gap-3 mb-6">
+  <!-- Metric Cards (APM 기본) -->
+  <div id="apm-metrics" class="grid grid-cols-6 gap-3 mb-6">
     <div class="metric-card bg-white rounded-xl p-4 shadow-sm border" id="mc-cpu">
       <div class="text-xs text-gray-500">CPU</div>
       <div class="text-2xl font-bold mt-0.5" id="mv-cpu">—</div>
@@ -61,6 +61,9 @@
     </div>
   </div>
 
+  <!-- Dynamic Metric Cards (Browser / 기타 프로젝트) -->
+  <div id="dynamic-metrics" class="grid grid-cols-4 gap-3 mb-6" style="display:none"></div>
+
   <!-- Scout Agent Log -->
   <div class="bg-white rounded-xl shadow-sm border p-5">
     <div class="flex items-center justify-between mb-3">
@@ -81,9 +84,12 @@
 renderSidebar('monitor');
 
 const hist = {cpu:[], mem:[], tps:[], err:[], atx:[], rt:[]};
+const dynHist = {};  // dynamic metric history
 const logEntries = [];
+let currentProductType = 'java';
 
 function pushH(key, val) { hist[key].push(val); if (hist[key].length > 6) hist[key].shift(); }
+function pushDH(key, val) { if (!dynHist[key]) dynHist[key] = []; dynHist[key].push(val); if (dynHist[key].length > 6) dynHist[key].shift(); }
 
 function setCard(id, display, value, crit, warn) {
   document.getElementById('mv-' + id).textContent = display;
@@ -109,29 +115,95 @@ function renderSpark(key) {
   }).join('');
 }
 
-function updateMetrics(m) {
+// Dynamic metric card labels for known browser/RUM keys
+const METRIC_LABELS = {
+  page_load: 'Page Load', rum_page_load: 'Page Load', pageLoad: 'Page Load',
+  ajax_time: 'AJAX Time', rum_ajax_time: 'AJAX Time', ajaxTime: 'AJAX Time',
+  ajax_count: 'AJAX Count', rum_ajax_count: 'AJAX Count', ajaxCount: 'AJAX Count',
+  error_count: 'JS Errors', rum_error_count: 'JS Errors', jsErrorCount: 'JS Errors',
+  page_count: 'Page Views', rum_page_count: 'Page Views', pageCount: 'Page Views',
+  resource_time: 'Resource', rum_resource_time: 'Resource', resourceTime: 'Resource',
+  frontend_time: 'Frontend', rum_frontend: 'Frontend', frontendTime: 'Frontend',
+  backend_time: 'Backend', rum_backend: 'Backend', backendTime: 'Backend',
+  lcp: 'LCP', fid: 'FID', cls: 'CLS', ttfb: 'TTFB', fcp: 'FCP',
+  cpu: 'CPU', mem: 'Memory', tps: 'TPS', error_rate: 'Error Rate',
+  actx: 'Active Tx', rtime: 'Resp Time', act_agent: 'Agents'
+};
+const SKIP_KEYS = new Set(['key','pcode','okind','onode','oname','oid','type','time','now']);
+
+function updateMetrics(m, productType) {
   if (!m) return;
-  pushH('cpu', m.cpu); pushH('mem', m.memory); pushH('tps', m.tps);
-  pushH('err', m.errorRate); pushH('atx', m.activeTransaction); pushH('rt', m.responseTime);
 
-  setCard('cpu', m.cpu.toFixed(1)+'%', m.cpu, 90, 70);
-  setCard('mem', m.memory.toFixed(1)+'%', m.memory, 85, 70);
-  setCard('tps', m.tps.toLocaleString(), -1, -1, -1);
-  setCard('err', m.errorRate.toFixed(1)+'%', m.errorRate, 3, 1);
-  setCard('atx', m.activeTransaction, m.activeTransaction, 100, 50);
-  setCard('rt', m.responseTime.toLocaleString()+'ms', m.responseTime, 3000, 2000);
+  const isApm = !productType || productType === 'java' || productType === 'nodejs' || productType === 'python' || productType === 'dotnet' || productType === 'golang' || productType === 'php';
 
-  ['cpu','mem','tps','err','atx','rt'].forEach(renderSpark);
+  if (isApm) {
+    // 기존 APM 카드 사용
+    document.getElementById('apm-metrics').style.display = '';
+    document.getElementById('dynamic-metrics').style.display = 'none';
+
+    pushH('cpu', m.cpu||0); pushH('mem', m.memory||0); pushH('tps', m.tps||0);
+    pushH('err', m.errorRate||0); pushH('atx', m.activeTransaction||0); pushH('rt', m.responseTime||0);
+
+    setCard('cpu', (m.cpu||0).toFixed(1)+'%', m.cpu||0, 90, 70);
+    setCard('mem', (m.memory||0).toFixed(1)+'%', m.memory||0, 85, 70);
+    setCard('tps', (m.tps||0).toLocaleString(), -1, -1, -1);
+    setCard('err', (m.errorRate||0).toFixed(1)+'%', m.errorRate||0, 3, 1);
+    setCard('atx', m.activeTransaction||0, m.activeTransaction||0, 100, 50);
+    setCard('rt', (m.responseTime||0).toLocaleString()+'ms', m.responseTime||0, 3000, 2000);
+    ['cpu','mem','tps','err','atx','rt'].forEach(renderSpark);
+  } else {
+    // 동적 메트릭 카드: raw 데이터 기반
+    document.getElementById('apm-metrics').style.display = 'none';
+    document.getElementById('dynamic-metrics').style.display = '';
+
+    const raw = m.rawData || {};
+    const keys = Object.keys(raw).filter(k => !SKIP_KEYS.has(k) && typeof raw[k] === 'number');
+    const container = document.getElementById('dynamic-metrics');
+
+    // 카드 렌더링
+    container.innerHTML = keys.map(k => {
+      const val = raw[k];
+      const label = METRIC_LABELS[k] || k;
+      pushDH(k, val);
+      const vals = dynHist[k] || [];
+      const max = Math.max(...vals, 1);
+      const sparkBars = vals.map(v => {
+        const h = Math.max(8, (v / max) * 100);
+        const pct = max > 0 ? v / max : 0;
+        const c = pct > .9 ? 'bg-red-500' : pct > .7 ? 'bg-orange-400' : pct > .5 ? 'bg-yellow-400' : 'bg-gray-300';
+        return `<div class="spark-bar w-1 rounded-sm ${c}" style="height:${h}%"></div>`;
+      }).join('');
+      const display = val >= 1000 ? val.toLocaleString() : (Number.isInteger(val) ? val : val.toFixed(1));
+      const suffix = k.includes('time') || k.includes('load') || k.includes('lcp') || k.includes('fcp') || k.includes('ttfb') || k.includes('fid') || k.includes('rtime') ? 'ms' : '';
+      return `<div class="metric-card bg-white rounded-xl p-4 shadow-sm border">
+        <div class="text-xs text-gray-500">${esc(label)}</div>
+        <div class="text-2xl font-bold mt-0.5">${display}${suffix}</div>
+        <div class="flex items-end gap-px mt-2 h-5">${sparkBars}</div>
+      </div>`;
+    }).join('');
+  }
 
   // Scout log entry
   const time = new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
-  const isCrit = m.cpu > 90 || m.errorRate > 3;
-  const isWarn = m.cpu > 70 || m.errorRate > 1 || m.activeTransaction > 80;
-  const status = isCrit ? 'ISSUE' : isWarn ? 'WARN' : 'OK';
-  const badgeCls = isCrit ? 'badge-critical' : isWarn ? 'badge-warning' : 'badge-success';
-  const rowBg = isCrit ? 'bg-red-50' : isWarn ? 'bg-yellow-50' : '';
+  const raw = m.rawData || {};
+  let summary = '';
+  if (isApm) {
+    const isCrit = (m.cpu||0) > 90 || (m.errorRate||0) > 3;
+    const isWarn = (m.cpu||0) > 70 || (m.errorRate||0) > 1 || (m.activeTransaction||0) > 80;
+    var status = isCrit ? 'ISSUE' : isWarn ? 'WARN' : 'OK';
+    var badgeCls = isCrit ? 'badge-critical' : isWarn ? 'badge-warning' : 'badge-success';
+    var rowBg = isCrit ? 'bg-red-50' : isWarn ? 'bg-yellow-50' : '';
+    summary = `cpu=${(m.cpu||0).toFixed(1)}, mem=${(m.memory||0).toFixed(1)}, tps=${m.tps||0}, err=${(m.errorRate||0).toFixed(1)}%, atx=${m.activeTransaction||0}`;
+  } else {
+    const numKeys = Object.keys(raw).filter(k => !SKIP_KEYS.has(k) && typeof raw[k] === 'number');
+    summary = numKeys.slice(0, 5).map(k => `${k}=${raw[k]}`).join(', ');
+    var status = 'OK';
+    var badgeCls = 'badge-success';
+    var rowBg = '';
+  }
 
-  logEntries.unshift({time, m, status, badgeCls, rowBg});
+  const category = isApm ? 'app_counter' : productType;
+  logEntries.unshift({time, summary, status, badgeCls, rowBg, category});
   if (logEntries.length > 20) logEntries.pop();
 
   document.getElementById('log-table').style.display = '';
@@ -141,8 +213,8 @@ function updateMetrics(m) {
   document.getElementById('scout-log').innerHTML = logEntries.map(e => `
     <tr class="timeline-row border-b ${e.rowBg}">
       <td class="py-2.5 font-mono">${e.time}</td>
-      <td>app_counter</td>
-      <td>cpu=${e.m.cpu.toFixed(1)}, mem=${e.m.memory.toFixed(1)}, tps=${e.m.tps}, err=${e.m.errorRate.toFixed(1)}%, atx=${e.m.activeTransaction}</td>
+      <td>${e.category}</td>
+      <td>${e.summary}</td>
       <td><span class="${e.badgeCls} px-1.5 py-0.5 rounded text-xs">${e.status}</span></td>
     </tr>
   `).join('');
@@ -167,7 +239,8 @@ async function poll() {
       fetch('/api/monitor/status').then(r => r.json()),
       fetch('/api/pipelines').then(r => r.json())
     ]);
-    updateMetrics(statusR.metrics);
+    if (statusR.productType) currentProductType = statusR.productType;
+    updateMetrics(statusR.metrics, currentProductType);
     updateStats(pipesR || []);
     updateSidebarAgents(pipesR || []);
   } catch(e) { console.error('poll error', e); }

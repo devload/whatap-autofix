@@ -59,7 +59,7 @@ async function startMonitoring() {
   try {
     await fetch('/api/auth/whatap/select-project', {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({pcode: p.pcode, projectApiToken: p.apiToken, projectName: p.name})
+      body: JSON.stringify({pcode: p.pcode, projectApiToken: p.apiToken, projectName: p.name, productType: p.productType || p.platform || 'java'})
     });
     sessionStorage.setItem('af_project_name', p.name + ' (' + p.pcode + ')');
     location.href = 'monitor.html';
