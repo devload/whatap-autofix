@@ -89,3 +89,19 @@ a.no-underline:hover{text-decoration:none}
 [data-tip]:hover::after,[data-tip]:hover::before{opacity:1}
 [data-tip].tip-down::after{bottom:auto;top:calc(100% + 8px)}
 [data-tip].tip-down::before{bottom:auto;top:calc(100% + 2px);border-top-color:transparent;border-bottom-color:#1e293b}
+
+/* Markdown content from LLM */
+.markdown-content h1,.markdown-content h2,.markdown-content h3{font-weight:700;margin:12px 0 6px;color:#1e3a5f}
+.markdown-content h1{font-size:16px}.markdown-content h2{font-size:14px}.markdown-content h3{font-size:13px}
+.markdown-content p{margin:4px 0;line-height:1.6}
+.markdown-content ul,.markdown-content ol{margin:4px 0 4px 16px;padding:0}
+.markdown-content li{margin:2px 0}
+.markdown-content code{background:#dbeafe;padding:1px 4px;border-radius:3px;font-family:'Courier New',monospace;font-size:12px}
+.markdown-content pre{background:#1e1e1e;color:#d4d4d4;padding:12px;border-radius:8px;overflow-x:auto;margin:8px 0;font-size:12px;line-height:1.6}
+.markdown-content pre code{background:transparent;color:inherit;padding:0}
+.markdown-content table{width:100%;border-collapse:collapse;margin:8px 0;font-size:12px}
+.markdown-content th{background:#dbeafe;font-weight:600;text-align:left;padding:6px 8px;border:1px solid #bfdbfe}
+.markdown-content td{padding:6px 8px;border:1px solid #bfdbfe}
+.markdown-content blockquote{border-left:3px solid #3b82f6;padding-left:12px;color:#4b5563;margin:8px 0}
+.markdown-content strong{font-weight:700}
+.markdown-content hr{border:none;border-top:1px solid #bfdbfe;margin:12px 0}

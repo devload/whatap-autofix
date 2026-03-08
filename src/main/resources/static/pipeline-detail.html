@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AutoFix Agent - Pipeline Detail</title>
 <script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.6/dist/purify.min.js"></script>
 <link rel="stylesheet" href="styles.css">
 </head>
 <body class="bg-gray-50 text-gray-900">
@@ -46,6 +48,7 @@
 
 <script src="common.js"></script>
 <script>
+marked.setOptions({ breaks: true, gfm: true, headerIds: false, mangle: false });
 renderSidebar('pipeline');
 
 const pipeId = new URLSearchParams(location.search).get('id');
@@ -223,9 +226,11 @@ function renderFixer(p, cls) {
   } else if (p.fix.type === 'CONFIG_CHANGE') {
     h += `<div class="stage-summary mb-2">${esc(p.fix.description)}</div>`;
     if (p.fix.recommendation) {
+      const rawMd = p.fix.recommendation;
+      const rendered = DOMPurify.sanitize(marked.parse(rawMd));
       h += `<div class="stage-content"><div class="bg-blue-50 border border-blue-200 rounded-lg p-4 text-xs">`;
       h += `<div class="font-semibold text-blue-800 mb-2">권장 조치</div>`;
-      h += `<div class="text-blue-700 whitespace-pre-line">${esc(p.fix.recommendation)}</div>`;
+      h += `<div class="markdown-content text-blue-900">${rendered}</div>`;
       h += `</div></div>`;
     }
     if (!p.fix.autoFixAvailable) {

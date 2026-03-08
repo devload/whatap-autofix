@@ -2,15 +2,20 @@ package io.sessioncast.autofix.agent;
 
 import io.sessioncast.autofix.client.GithubApiClient;
 import io.sessioncast.autofix.config.AutofixProperties;
+import io.sessioncast.autofix.controller.SettingsController;
 import io.sessioncast.autofix.model.FixProposal;
 import io.sessioncast.autofix.model.FixProposal.FileDiff;
 import io.sessioncast.autofix.model.FixProposal.FixType;
+import io.sessioncast.autofix.model.Metric;
 import io.sessioncast.autofix.model.Pipeline;
 import io.sessioncast.autofix.rule.Rule;
 import io.sessioncast.autofix.rule.RuleEngine;
 import io.sessioncast.autofix.service.PipelineService;
-import lombok.RequiredArgsConstructor;
+import io.sessioncast.core.SessionCastClient;
+import io.sessioncast.core.api.LlmChatRequest;
+import io.sessioncast.core.api.LlmChatResponse;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -18,7 +23,6 @@ import java.util.Map;
 
 @Slf4j
 @Component
-@RequiredArgsConstructor
 public class FixerAgent {
 
     private final GithubApiClient githubClient;
@@ -26,6 +30,21 @@ public class FixerAgent {
     private final PipelineService pipelineService;
     private final AutofixProperties props;
     private final DeployerAgent deployerAgent;
+    private final SessionCastClient sessionCastClient;
+
+    public FixerAgent(GithubApiClient githubClient,
+                      RuleEngine ruleEngine,
+                      PipelineService pipelineService,
+                      AutofixProperties props,
+                      DeployerAgent deployerAgent,
+                      @Autowired(required = false) SessionCastClient sessionCastClient) {
+        this.githubClient = githubClient;
+        this.ruleEngine = ruleEngine;
+        this.pipelineService = pipelineService;
+        this.props = props;
+        this.deployerAgent = deployerAgent;
+        this.sessionCastClient = sessionCastClient;
+    }
 
     public void fix(Pipeline pipeline) {
         log.info("Fixer Agent: proposing fix for {} (pipeline {})", pipeline.getIssueType(), pipeline.getId());
@@ -34,7 +53,6 @@ public class FixerAgent {
         Rule rule = ruleEngine.findRule(pipeline.getIssueType());
 
         if (rule != null && rule.getFixScript() != null) {
-            // Script-based fix
             FixProposal fix = FixProposal.builder()
                     .type(FixType.SCRIPT)
                     .description("자동 매칭 규칙: " + rule.getName() + " → " + rule.getFixScript())
@@ -44,10 +62,8 @@ public class FixerAgent {
             pipeline.addLog(Pipeline.Stage.FIXER, "스크립트 수정 매칭: " + rule.getFixScript());
             advanceToDeployer(pipeline);
         } else if (isGithubConfigured()) {
-            // GitHub 연동 → 코드 변경 제안 + PR 생성
             proposeCodeFix(pipeline);
         } else {
-            // GitHub 미연결 → 권장 조치 제안만 하고 Deployer로 넘김
             proposeRecommendation(pipeline);
         }
     }
@@ -62,9 +78,150 @@ public class FixerAgent {
     }
 
     /**
-     * GitHub 미연결 시: 권장 조치를 제안하고 Deployer로 넘긴다
+     * GitHub 미연결 시: LLM으로 권장 조치 생성, 실패 시 규칙 기반 폴백
      */
     private void proposeRecommendation(Pipeline pipeline) {
+        try {
+            if (sessionCastClient != null) {
+                performLlmRecommendation(pipeline);
+            } else {
+                fallbackRecommendation(pipeline);
+            }
+        } catch (Exception e) {
+            log.error("Fixer: LLM fix generation failed, using fallback for pipeline {}", pipeline.getId(), e);
+            pipeline.addLog(Pipeline.Stage.FIXER, "LLM 수정안 생성 실패 — 규칙 기반 제안으로 전환");
+            fallbackRecommendation(pipeline);
+        }
+    }
+
+    /**
+     * SessionCast Relay → LLM으로 마크다운 형식의 동적 수정안 생성
+     */
+    private void performLlmRecommendation(Pipeline pipeline) throws Exception {
+        String issueType = pipeline.getIssueType();
+        double value = pipeline.getIssue().getValue();
+        double threshold = pipeline.getIssue().getThreshold();
+        String rootCause = pipeline.getAnalysis() != null ? pipeline.getAnalysis().getRootCause() : "분석 결과 없음";
+        double confidence = pipeline.getAnalysis() != null ? pipeline.getAnalysis().getConfidence() : 0.0;
+        var correlatedMetrics = pipeline.getAnalysis() != null ? pipeline.getAnalysis().getCorrelatedMetrics() : List.of();
+
+        Metric latest = pipelineService.getLatestMetric();
+        String metricsSnapshot = formatMetrics(latest);
+
+        String prompt = String.format("""
+                ## 장애 분석 결과
+                - 이슈 타입: %s
+                - 근본 원인: %s
+                - 신뢰도: %.0f%%
+                - 상관 메트릭: %s
+
+                ## 현재 서버 메트릭
+                %s
+
+                ## 감지 기준
+                - 메트릭: %s, 현재 값: %.1f, 임계값: %.1f
+
+                ## 요청사항
+                위 장애 분석 결과를 바탕으로 구체적인 수정 권장안을 작성해주세요.
+
+                반드시 아래 JSON 형식으로 응답해주세요:
+                {"description": "1줄 요약 (50자 이내)", "recommendation": "마크다운 형식의 상세 권장 조치"}
+
+                recommendation 마크다운에 반드시 포함할 항목:
+                1. **긴급도 판단** — 현재 상황의 심각성 평가
+                2. **즉시 조치 사항** — 번호 목록으로 구체적 조치
+                3. **설정 변경 예시** — application.yml, JVM 옵션 등을 코드 블록으로
+                4. **근본 원인 해결** — 중장기 개선 방안
+                5. **모니터링 포인트** — 테이블 형식으로 (메트릭명 | 정상범위 | 현재값 | 상태)
+
+                다양한 마크다운 요소(테이블, 코드 블록, 볼드, 리스트 등)를 활용하고,
+                현재 메트릭 값을 기반으로 상황에 맞는 구체적인 수치와 조치를 제시해주세요.
+                반드시 한국어로 응답하세요.
+                """,
+                issueType, rootCause, confidence * 100, correlatedMetrics,
+                metricsSnapshot, pipeline.getIssue().getMetric(), value, threshold);
+
+        String aiProvider = SettingsController.getAiProvider();
+        String aiModel = SettingsController.getAiModel();
+        pipeline.addLog(Pipeline.Stage.FIXER, "LLM 수정안 요청 중... (provider: " + aiProvider + ")");
+
+        var requestBuilder = LlmChatRequest.builder()
+                .system("당신은 서버 운영 전문가이자 SRE(Site Reliability Engineer)입니다. "
+                      + "장애 분석 결과를 바탕으로 구체적인 수정 권장안을 마크다운으로 작성합니다. "
+                      + "반드시 한국어로, JSON 형식으로 응답하세요.")
+                .user(prompt);
+        if (aiModel != null && !aiModel.isBlank()) {
+            requestBuilder.model(aiModel);
+        }
+        LlmChatRequest request = requestBuilder.build();
+
+        LlmChatResponse response = sessionCastClient.llmChat(request)
+                .get(5, java.util.concurrent.TimeUnit.MINUTES);
+
+        if (response.hasError()) {
+            log.warn("Fixer: LLM response error: {}", response.error().message());
+            throw new RuntimeException("LLM error: " + response.error().message());
+        }
+
+        String content = response.content();
+        log.info("Fixer: LLM response received ({} chars)", content != null ? content.length() : 0);
+        pipeline.addLog(Pipeline.Stage.FIXER, "LLM 수정안 생성 완료");
+
+        // Parse LLM response
+        FixProposal fix = parseLlmFixResponse(content, pipeline);
+        pipelineService.setFix(pipeline.getId(), fix);
+
+        log.info("Fixer: LLM fix description='{}' for pipeline {}", fix.getDescription(), pipeline.getId());
+        pipeline.addLog(Pipeline.Stage.FIXER, "AI 수정안: " + fix.getDescription());
+
+        advanceToDeployer(pipeline);
+    }
+
+    private FixProposal parseLlmFixResponse(String content, Pipeline pipeline) {
+        try {
+            String json = content;
+            int jsonStart = content.indexOf('{');
+            int jsonEnd = content.lastIndexOf('}');
+            if (jsonStart >= 0 && jsonEnd > jsonStart) {
+                json = content.substring(jsonStart, jsonEnd + 1);
+            }
+
+            var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+            var node = mapper.readTree(json);
+
+            String description = node.has("description") ? node.get("description").asText() : "AI 생성 수정안";
+            String recommendation = node.has("recommendation") ? node.get("recommendation").asText() : content;
+
+            return FixProposal.builder()
+                    .type(FixType.CONFIG_CHANGE)
+                    .description(description)
+                    .recommendation(recommendation)
+                    .autoFixAvailable(false)
+                    .build();
+
+        } catch (Exception e) {
+            log.warn("Fixer: LLM response parsing failed, using raw content");
+            return FixProposal.builder()
+                    .type(FixType.CONFIG_CHANGE)
+                    .description(pipeline.getIssueType() + " — AI 분석 기반 수정안")
+                    .recommendation(content != null ? content : "파싱 실패")
+                    .autoFixAvailable(false)
+                    .build();
+        }
+    }
+
+    private String formatMetrics(Metric m) {
+        if (m == null) return "메트릭 데이터 없음";
+        return String.format(
+                "CPU: %.1f%%, Memory: %.1f%%, TPS: %d, ErrorRate: %.1f%%, ActiveTx: %d, ResponseTime: %dms, DBPool: %.1f%%",
+                m.getCpu(), m.getMemory(), m.getTps(), m.getErrorRate(),
+                m.getActiveTransaction(), m.getResponseTime(), m.getDbPoolUsage());
+    }
+
+    /**
+     * 규칙 기반 폴백 (SessionCast 미연결 시)
+     */
+    private void fallbackRecommendation(Pipeline pipeline) {
         String issueType = pipeline.getIssueType();
         String rootCause = pipeline.getAnalysis() != null ? pipeline.getAnalysis().getRootCause() : "";
 
@@ -78,11 +235,9 @@ public class FixerAgent {
                 .build();
 
         pipelineService.setFix(pipeline.getId(), fix);
-        log.info("Fixer Agent: recommendation proposed for pipeline {} (GitHub not connected)", pipeline.getId());
-        pipeline.addLog(Pipeline.Stage.FIXER, "GitHub 미연결 — 권장 조치 제안: " + rec.description);
-        pipeline.addLog(Pipeline.Stage.FIXER, "상세: " + rec.detail);
+        log.info("Fixer Agent: fallback recommendation for pipeline {}", pipeline.getId());
+        pipeline.addLog(Pipeline.Stage.FIXER, "규칙 기반 제안: " + rec.description);
 
-        // GitHub 없어도 Deployer로 진행
         advanceToDeployer(pipeline);
     }
 
