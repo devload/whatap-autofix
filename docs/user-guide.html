@@ -746,211 +746,111 @@
       </div>
     </div>
 
-    <div class="space-y-6">
-      <!-- Case 1: APDEX_LOW -->
-      <div class="bg-white border rounded-xl p-5">
-        <div class="flex items-center gap-2 mb-3">
-          <span class="bg-red-100 text-red-700 text-xs font-bold px-2 py-0.5 rounded">CRITICAL</span>
-          <span class="bg-blue-100 text-blue-700 text-xs px-2 py-0.5 rounded">Java APM</span>
-          <span class="font-semibold">APDEX_LOW</span>
-          <span class="text-xs text-gray-400">— Apdex 0.65</span>
+    <!-- ── Java APM Demo ── -->
+    <div class="mb-10">
+      <h3 class="font-bold text-lg mb-3 flex items-center gap-2">
+        <span class="bg-blue-100 text-blue-700 text-xs font-bold px-2 py-0.5 rounded">Java APM</span>
+        Java APM Demo — RESPONSE_TIME, APDEX_LOW
+      </h3>
+      <p class="text-sm text-gray-600 mb-3">AI Scout가 응답시간 초과와 APDEX 저하를 감지하고 DB 커넥션 풀 포화를 근본 원인으로 분석</p>
+      <div class="img-grid mb-4">
+        <div>
+          <img src="guide-screenshots/ai-scout-java-monitor.png" alt="Java APM 모니터 화면" class="step-img w-full">
+          <div class="img-caption">모니터 — CPU 4.9%, TPS 6, Active Tx 27, Resp Time 1,538ms</div>
         </div>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-          <div>
-            <div class="text-xs text-gray-500 mb-1 font-bold">이슈 감지</div>
-            <p class="text-gray-700">Apdex 점수가 0.65로 경고 임계값(0.7) 미만 — 사용자 만족도 심각 저하</p>
-          </div>
-          <div>
-            <div class="text-xs text-gray-500 mb-1 font-bold">AI 근본 원인 분석</div>
-            <p class="text-gray-700">높은 평균 응답시간(2759ms)과 과도한 DB 커넥션 사용(활성 562개/전체 1206개)으로 트랜잭션 처리 지연</p>
-          </div>
-          <div>
-            <div class="text-xs text-gray-500 mb-1 font-bold">AI 수정 제안</div>
-            <p class="text-gray-700">DB 커넥션 풀 사이즈 조정, 유휴 커넥션 정리 정책 설정, 슬로우 쿼리 점검</p>
-          </div>
-        </div>
-        <div class="flex flex-wrap gap-1 mt-3">
-          <span class="text-xs bg-gray-100 px-2 py-0.5 rounded">rtime:2759ms</span>
-          <span class="text-xs bg-gray-100 px-2 py-0.5 rounded">dbconn_act:562</span>
-          <span class="text-xs bg-gray-100 px-2 py-0.5 rounded">dbconn_total:1206</span>
-          <span class="text-xs bg-gray-100 px-2 py-0.5 rounded">actx:26</span>
-          <span class="text-xs bg-gray-100 px-2 py-0.5 rounded">act_httpc:11</span>
+        <div>
+          <img src="guide-screenshots/ai-scout-java-pipelines.png" alt="Java APM 파이프라인 목록" class="step-img w-full">
+          <div class="img-caption">파이프라인 — RESPONSE_TIME, APDEX_LOW 이슈 감지</div>
         </div>
       </div>
+      <img src="guide-screenshots/ai-scout-java-detail-1-header.png" alt="Java RESPONSE_TIME 분석" class="step-img w-full mb-2">
+      <div class="img-caption mb-4">RESPONSE_TIME 분석 — rtime 2695ms, DB 커넥션 498/1206(41%), 신뢰도 78%</div>
+      <img src="guide-screenshots/ai-scout-java-detail-2-header.png" alt="Java APDEX_LOW 분석" class="step-img w-full mb-2">
+      <div class="img-caption mb-4">APDEX_LOW 분석 — Apdex 임계값 초과, 활성 트랜잭션 과다</div>
+    </div>
 
-      <!-- Case 2: RESPONSE_TIME -->
-      <div class="bg-white border rounded-xl p-5">
-        <div class="flex items-center gap-2 mb-3">
-          <span class="bg-yellow-100 text-yellow-700 text-xs font-bold px-2 py-0.5 rounded">WARNING</span>
-          <span class="bg-blue-100 text-blue-700 text-xs px-2 py-0.5 rounded">Java APM</span>
-          <span class="font-semibold">RESPONSE_TIME</span>
-          <span class="text-xs text-gray-400">— 1729ms</span>
+    <!-- ── Node.js APM Demo ── -->
+    <div class="mb-10">
+      <h3 class="font-bold text-lg mb-3 flex items-center gap-2">
+        <span class="bg-green-100 text-green-700 text-xs font-bold px-2 py-0.5 rounded">Node.js APM</span>
+        Node.js APM Demo — DB_CONNECTION_POOL, RESPONSE_TIME, APDEX
+      </h3>
+      <p class="text-sm text-gray-600 mb-3">AI가 Node.js 특화 메트릭(heap_used, event_loop_lag)을 자동 선정하고, DB 커넥션 풀 1419% 초과를 감지</p>
+      <div class="img-grid mb-4">
+        <div>
+          <img src="guide-screenshots/ai-scout-nodejs-monitor.png" alt="Node.js APM 모니터 화면" class="step-img w-full">
+          <div class="img-caption">모니터 — 활성 이슈 3건, 오늘 수정 1건</div>
         </div>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-          <div>
-            <div class="text-xs text-gray-500 mb-1 font-bold">이슈 감지</div>
-            <p class="text-gray-700">평균 응답시간 1729ms로 경고 임계값(1000ms) 초과</p>
-          </div>
-          <div>
-            <div class="text-xs text-gray-500 mb-1 font-bold">AI 근본 원인 분석</div>
-            <p class="text-gray-700">DB 커넥션 풀 포화 및 다수의 활성 HTTP 클라이언트 호출로 응답 시간이 임계값의 1.7배 수준으로 급등</p>
-          </div>
-          <div>
-            <div class="text-xs text-gray-500 mb-1 font-bold">AI 수정 제안</div>
-            <p class="text-gray-700">외부 HTTP 호출 타임아웃 설정 강화, DB 커넥션 풀 최적화, 비동기 처리 전환</p>
-          </div>
+        <div>
+          <img src="guide-screenshots/ai-scout-nodejs-pipelines.png" alt="Node.js 파이프라인" class="step-img w-full">
+          <div class="img-caption">파이프라인 — DB_CONNECTION_POOL, RESPONSE_TIME, APDEX</div>
         </div>
       </div>
+      <img src="guide-screenshots/ai-scout-nodejs-detail-1-header.png" alt="Node.js DB_CONNECTION_POOL 분석" class="step-img w-full mb-2">
+      <div class="img-caption mb-4">DB_CONNECTION_POOL — 풀 사용률 1419% (1206/85), 커넥션 누수 또는 폭발적 트래픽 의심, 신뢰도 91%</div>
+    </div>
 
-      <!-- Case 3: APDEX Node.js -->
-      <div class="bg-white border rounded-xl p-5">
-        <div class="flex items-center gap-2 mb-3">
-          <span class="bg-red-100 text-red-700 text-xs font-bold px-2 py-0.5 rounded">CRITICAL</span>
-          <span class="bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded">Node.js APM</span>
-          <span class="font-semibold">APDEX</span>
-          <span class="text-xs text-gray-400">— Apdex 0.73</span>
+    <!-- ── Python APM Demo ── -->
+    <div class="mb-10">
+      <h3 class="font-bold text-lg mb-3 flex items-center gap-2">
+        <span class="bg-yellow-100 text-yellow-700 text-xs font-bold px-2 py-0.5 rounded">Python APM</span>
+        Python APM Demo — DB_CONNECTION_POOL, DB_POOL_EXHAUSTION, RESPONSE_TIME
+      </h3>
+      <p class="text-sm text-gray-600 mb-3">Python 서버에서 DB 커넥션 풀 고갈과 응답시간 초과를 동시 감지, 3개 이슈 타입 생성</p>
+      <div class="img-grid mb-4">
+        <div>
+          <img src="guide-screenshots/ai-scout-python-monitor.png" alt="Python APM 모니터" class="step-img w-full">
+          <div class="img-caption">모니터 — Python APM 메트릭 수집 중</div>
         </div>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-          <div>
-            <div class="text-xs text-gray-500 mb-1 font-bold">이슈 감지</div>
-            <p class="text-gray-700">Apdex 점수 0.73으로 경고 임계값(0.7) 근접 — 사용자 만족도 저하 시작</p>
-          </div>
-          <div>
-            <div class="text-xs text-gray-500 mb-1 font-bold">AI 근본 원인 분석</div>
-            <p class="text-gray-700">Node.js 서버의 응답 시간 증가로 APDEX가 임계값에 도달, 일부 오류 응답이 사용자 만족도를 저하</p>
-          </div>
-          <div>
-            <div class="text-xs text-gray-500 mb-1 font-bold">AI 수정 제안</div>
-            <p class="text-gray-700">이벤트 루프 병목 점검, 비동기 I/O 최적화, 응답 시간이 긴 엔드포인트 프로파일링</p>
-          </div>
+        <div>
+          <img src="guide-screenshots/ai-scout-python-pipelines.png" alt="Python 파이프라인" class="step-img w-full">
+          <div class="img-caption">파이프라인 — 6건 (DB풀 고갈, 응답지연 등)</div>
         </div>
       </div>
+      <img src="guide-screenshots/ai-scout-python-detail-1-header.png" alt="Python DB_CONNECTION_POOL 분석" class="step-img w-full mb-2">
+      <div class="img-caption mb-4">DB_CONNECTION_POOL 분석 — AI가 Python GIL 경합과 DB 커넥션 누수 가능성을 근본 원인으로 지적</div>
+    </div>
 
-      <!-- Case 4: APDEX_LOW Python -->
-      <div class="bg-white border rounded-xl p-5">
-        <div class="flex items-center gap-2 mb-3">
-          <span class="bg-red-100 text-red-700 text-xs font-bold px-2 py-0.5 rounded">CRITICAL</span>
-          <span class="bg-yellow-100 text-yellow-700 text-xs px-2 py-0.5 rounded">Python APM</span>
-          <span class="font-semibold">APDEX_LOW</span>
-          <span class="text-xs text-gray-400">— Apdex 0.50</span>
+    <!-- ── PostgreSQL DB Demo ── -->
+    <div class="mb-10">
+      <h3 class="font-bold text-lg mb-3 flex items-center gap-2">
+        <span class="bg-indigo-100 text-indigo-700 text-xs font-bold px-2 py-0.5 rounded">PostgreSQL DB</span>
+        PostgreSQL Monitoring Demo — DB_CONNECTION_POOL, DB_POOL_EXHAUSTION, RESPONSE_TIME
+      </h3>
+      <p class="text-sm text-gray-600 mb-3">DB 프로젝트에서 AI가 active_sessions, lock_wait, slow_query 등 DB 특화 메트릭을 자동 선정하고 분석</p>
+      <div class="img-grid mb-4">
+        <div>
+          <img src="guide-screenshots/ai-scout-postgresql-monitor.png" alt="PostgreSQL 모니터" class="step-img w-full">
+          <div class="img-caption">모니터 — PostgreSQL 동적 메트릭 카드</div>
         </div>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-          <div>
-            <div class="text-xs text-gray-500 mb-1 font-bold">이슈 감지</div>
-            <p class="text-gray-700">Apdex 0.50으로 임계치에 도달 — 사용자 만족도가 매우 낮은 상태</p>
-          </div>
-          <div>
-            <div class="text-xs text-gray-500 mb-1 font-bold">AI 근본 원인 분석</div>
-            <p class="text-gray-700">단일 활성 트랜잭션의 응답시간이 1653ms로 과도하게 길어 APDEX 점수가 임계값에 도달</p>
-          </div>
-          <div>
-            <div class="text-xs text-gray-500 mb-1 font-bold">AI 수정 제안</div>
-            <p class="text-gray-700">Python 서버 즉각 점검, GIL 경합 확인, 동기 I/O 병목 비동기 전환</p>
-          </div>
+        <div>
+          <img src="guide-screenshots/ai-scout-postgresql-pipelines.png" alt="PostgreSQL 파이프라인" class="step-img w-full">
+          <div class="img-caption">파이프라인 — 8건 감지 (DB 커넥션 풀 집중)</div>
         </div>
       </div>
+      <img src="guide-screenshots/ai-scout-postgresql-detail-1-header.png" alt="PostgreSQL DB_CONNECTION_POOL 상세" class="step-img w-full mb-2">
+      <div class="img-caption mb-4">DB_CONNECTION_POOL — dbconn_total 1206, 임계값 85 대비 14배 초과, 풀 사용률 1419%, 신뢰도 91%</div>
+    </div>
 
-      <!-- Case 5: RESPONSE_TIME_HIGH Browser -->
-      <div class="bg-white border rounded-xl p-5">
-        <div class="flex items-center gap-2 mb-3">
-          <span class="bg-yellow-100 text-yellow-700 text-xs font-bold px-2 py-0.5 rounded">WARNING</span>
-          <span class="bg-orange-100 text-orange-700 text-xs px-2 py-0.5 rounded">Browser</span>
-          <span class="font-semibold">RESPONSE_TIME_HIGH</span>
-          <span class="text-xs text-gray-400">— 2759ms</span>
+    <!-- ── Go APM Demo ── -->
+    <div class="mb-10">
+      <h3 class="font-bold text-lg mb-3 flex items-center gap-2">
+        <span class="bg-cyan-100 text-cyan-700 text-xs font-bold px-2 py-0.5 rounded">Go APM</span>
+        Go APM Demo — DB_CONNECTION_POOL, DB_POOL_EXHAUSTION, APDEX_ANOMALY
+      </h3>
+      <p class="text-sm text-gray-600 mb-3">Go 서버에서 APDEX 이상 패턴을 감지 — 값이 정상(1.0)이지만 활성 트랜잭션 부하를 AI가 포착</p>
+      <div class="img-grid mb-4">
+        <div>
+          <img src="guide-screenshots/ai-scout-go-monitor.png" alt="Go APM 모니터" class="step-img w-full">
+          <div class="img-caption">모니터 — Go APM 메트릭 수집</div>
         </div>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-          <div>
-            <div class="text-xs text-gray-500 mb-1 font-bold">이슈 감지</div>
-            <p class="text-gray-700">브라우저 프로젝트 응답시간 2759ms로 임계값(1000ms)의 2.8배 초과</p>
-          </div>
-          <div>
-            <div class="text-xs text-gray-500 mb-1 font-bold">AI 근본 원인 분석</div>
-            <p class="text-gray-700">소수 사용자(3명)만 접속 중임에도 응답 지연 — 콜드스타트 또는 외부 API 지연 의심</p>
-          </div>
-          <div>
-            <div class="text-xs text-gray-500 mb-1 font-bold">AI 수정 제안</div>
-            <p class="text-gray-700">서버 사이드 렌더링 최적화, 외부 API 호출 캐싱, 정적 리소스 CDN 적용</p>
-          </div>
+        <div>
+          <img src="guide-screenshots/ai-scout-go-pipelines.png" alt="Go 파이프라인" class="step-img w-full">
+          <div class="img-caption">파이프라인 — 10건 감지 (APDEX_ANOMALY 포함)</div>
         </div>
       </div>
-
-      <!-- Case 6: RESPONSE_TIME Java -->
-      <div class="bg-white border rounded-xl p-5">
-        <div class="flex items-center gap-2 mb-3">
-          <span class="bg-yellow-100 text-yellow-700 text-xs font-bold px-2 py-0.5 rounded">WARNING</span>
-          <span class="bg-blue-100 text-blue-700 text-xs px-2 py-0.5 rounded">Java APM</span>
-          <span class="font-semibold">RESPONSE_TIME</span>
-          <span class="text-xs text-gray-400">— 1436ms</span>
-        </div>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-          <div>
-            <div class="text-xs text-gray-500 mb-1 font-bold">이슈 감지</div>
-            <p class="text-gray-700">평균 응답시간 1436ms로 경고 임계값(1000ms) 초과 — 사용자 경험 저하 우려</p>
-          </div>
-          <div>
-            <div class="text-xs text-gray-500 mb-1 font-bold">AI 근본 원인 분석</div>
-            <p class="text-gray-700">활성 트랜잭션 23개와 HTTP 클라이언트 호출 6개 동시 처리, DB 커넥션 풀 사용률 42%에 달해 외부 의존성 지연</p>
-          </div>
-          <div>
-            <div class="text-xs text-gray-500 mb-1 font-bold">AI 수정 제안</div>
-            <p class="text-gray-700">외부 HTTP 호출 타임아웃 단축, DB 커넥션 풀 사이즈 조정, 캐싱 레이어 도입</p>
-          </div>
-        </div>
-        <div class="flex flex-wrap gap-1 mt-3">
-          <span class="text-xs bg-gray-100 px-2 py-0.5 rounded">rtime:1436ms</span>
-          <span class="text-xs bg-gray-100 px-2 py-0.5 rounded">actx:23</span>
-          <span class="text-xs bg-gray-100 px-2 py-0.5 rounded">act_httpc:6</span>
-          <span class="text-xs bg-gray-100 px-2 py-0.5 rounded">dbconn_act/total:42%</span>
-        </div>
-      </div>
-
-      <!-- Case 7: APDEX Java -->
-      <div class="bg-white border rounded-xl p-5">
-        <div class="flex items-center gap-2 mb-3">
-          <span class="bg-red-100 text-red-700 text-xs font-bold px-2 py-0.5 rounded">CRITICAL</span>
-          <span class="bg-blue-100 text-blue-700 text-xs px-2 py-0.5 rounded">Java APM</span>
-          <span class="font-semibold">APDEX</span>
-          <span class="text-xs text-gray-400">— Apdex 0.64</span>
-        </div>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-          <div>
-            <div class="text-xs text-gray-500 mb-1 font-bold">이슈 감지</div>
-            <p class="text-gray-700">Apdex 0.64로 사용자 만족도 심각 저하 (위험 임계값 0.5~경고 0.7 사이)</p>
-          </div>
-          <div>
-            <div class="text-xs text-gray-500 mb-1 font-bold">AI 근본 원인 분석</div>
-            <p class="text-gray-700">평균 응답 시간 2483ms로 매우 높고, 활성 DB 연결 수(502)가 비정상적으로 높아 DB 커넥션 풀 경합이 주요 원인</p>
-          </div>
-          <div>
-            <div class="text-xs text-gray-500 mb-1 font-bold">AI 수정 제안</div>
-            <p class="text-gray-700">커넥션 풀 최대 크기 확대, 장시간 점유 쿼리 타임아웃 설정, APDEX 목표 기반 SLO 설정</p>
-          </div>
-        </div>
-      </div>
-
-      <!-- Case 8: APDEX_SCORE Java -->
-      <div class="bg-white border rounded-xl p-5">
-        <div class="flex items-center gap-2 mb-3">
-          <span class="bg-red-100 text-red-700 text-xs font-bold px-2 py-0.5 rounded">CRITICAL</span>
-          <span class="bg-blue-100 text-blue-700 text-xs px-2 py-0.5 rounded">Java APM</span>
-          <span class="font-semibold">APDEX_SCORE</span>
-          <span class="text-xs text-gray-400">— Apdex 0.70</span>
-        </div>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-          <div>
-            <div class="text-xs text-gray-500 mb-1 font-bold">이슈 감지</div>
-            <p class="text-gray-700">Apdex 점수 0.70으로 경고 기준(0.8) 미만 — 사용자 만족도 크게 저하</p>
-          </div>
-          <div>
-            <div class="text-xs text-gray-500 mb-1 font-bold">AI 근본 원인 분석</div>
-            <p class="text-gray-700">AI 분석 진행 중...</p>
-          </div>
-          <div>
-            <div class="text-xs text-gray-500 mb-1 font-bold">상태</div>
-            <p class="text-blue-600 font-semibold">IN_PROGRESS — Analyzer 단계 실행 중</p>
-          </div>
-        </div>
-      </div>
+      <img src="guide-screenshots/ai-scout-go-detail-3-header.png" alt="Go APDEX_ANOMALY 분석" class="step-img w-full mb-2">
+      <div class="img-caption mb-4">APDEX_ANOMALY — APDEX 1.0이지만 rtime 714ms, actx 5개로 일시적 부하 감지, 신뢰도 55%</div>
     </div>
 
     <div class="bg-purple-50 border border-purple-200 rounded-lg p-4 text-sm mt-6">
