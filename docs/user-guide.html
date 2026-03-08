@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AutoFix Agent - 사용자 가이드</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body { font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif; }
+  .step-img { border: 1px solid #e5e7eb; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+  .step-num { width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border-radius: 50%; font-weight: 700; font-size: 16px; flex-shrink: 0; }
+  .img-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .img-caption { font-size: 12px; color: #6b7280; margin-top: 6px; font-weight: 500; }
+  .mode-card { border-radius: 12px; padding: 20px; }
+</style>
+</head>
+<body class="bg-white text-gray-900">
+
+<!-- Header -->
+<header class="bg-gray-900 text-white py-8">
+  <div class="max-w-4xl mx-auto px-6">
+    <div class="flex items-center gap-3 mb-4">
+      <div class="w-12 h-12 bg-sky-500 rounded-xl flex items-center justify-center text-white font-bold text-lg">AF</div>
+      <div>
+        <h1 class="text-3xl font-bold">AutoFix Agent</h1>
+        <p class="text-gray-400 text-sm">사용자 가이드 v1.0</p>
+      </div>
+    </div>
+    <p class="text-gray-300 mt-2">WhaTap 모니터링 이상 감지 시 자동으로 원인 분석, 코드 수정, 배포, 검증까지 수행하는 AI 에이전트</p>
+    <div class="mt-3">
+      <a href="https://github.com/devload/whatap-autofix" target="_blank" class="inline-flex items-center gap-2 bg-gray-800 hover:bg-gray-700 text-gray-200 text-sm px-4 py-2 rounded-lg transition">
+        <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+        GitHub 저장소
+      </a>
+    </div>
+  </div>
+</header>
+
+<main class="max-w-4xl mx-auto px-6 py-10">
+
+  <!-- TOC -->
+  <nav class="bg-gray-50 rounded-xl p-6 mb-10 border">
+    <h2 class="font-bold text-lg mb-3">목차</h2>
+    <div class="grid grid-cols-2 gap-x-8">
+      <div>
+        <h3 class="font-bold text-sm mb-2 text-gray-500">기본 사용법</h3>
+        <ol class="space-y-1 text-sm text-gray-600">
+          <li><a href="#step1" class="hover:text-sky-600">1. 로그인</a></li>
+          <li><a href="#step2" class="hover:text-sky-600">2. 프로젝트 선택</a></li>
+          <li><a href="#step3" class="hover:text-sky-600">3. 모니터 — 실시간 모니터링</a></li>
+          <li><a href="#step4" class="hover:text-sky-600">4. 파이프라인 — 자동 수정 현황</a></li>
+          <li><a href="#step5" class="hover:text-sky-600">5. 설정 — 연결, AI 분석, 임계값</a></li>
+        </ol>
+        <h3 class="font-bold text-sm mb-2 mt-4 text-gray-500">동작 모드</h3>
+        <ol start="6" class="space-y-1 text-sm text-gray-600">
+          <li><a href="#modes" class="hover:text-sky-600">6. 실제 배포 vs 시뮬레이션 모드</a></li>
+          <li><a href="#simulation" class="hover:text-sky-600">7. 시뮬레이션 모드 상세</a></li>
+        </ol>
+      </div>
+      <div>
+        <h3 class="font-bold text-sm mb-2 text-gray-500">실제 분석 사례</h3>
+        <ol start="8" class="space-y-1 text-sm text-gray-600">
+          <li><a href="#case-cpu" class="hover:text-sky-600">8. CPU_HIGH 파이프라인 상세</a></li>
+          <li><a href="#case-slow" class="hover:text-sky-600">9. RESPONSE_SLOW 파이프라인 상세</a></li>
+          <li><a href="#case-inprogress" class="hover:text-sky-600">10. 진행 중(IN_PROGRESS) 파이프라인</a></li>
+          <li><a href="#architecture" class="hover:text-sky-600">11. 파이프라인 흐름 구조</a></li>
+        </ol>
+      </div>
+    </div>
+  </nav>
+
+  <!-- ═══════════════════════════════════════ -->
+  <!-- Step 1: 로그인 -->
+  <!-- ═══════════════════════════════════════ -->
+  <section id="step1" class="mb-14">
+    <div class="flex items-start gap-4 mb-4">
+      <div class="step-num bg-sky-500 text-white">1</div>
+      <div>
+        <h2 class="text-xl font-bold">로그인</h2>
+        <p class="text-gray-500 text-sm mt-1">http://localhost:8095 에 접속하여 WhaTap 계정으로 로그인합니다</p>
+      </div>
+    </div>
+
+    <img src="guide-screenshots/01-login.png" alt="로그인 페이지" class="step-img w-full mb-4">
+    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm mb-4">
+      <p><strong>SessionCast</strong> (좌측): 배포 세션 녹화용 토큰 — 선택사항</p>
+      <p><strong>WhaTap</strong> (우측): 모니터링 연결을 위한 로그인 — 필수</p>
+    </div>
+
+    <div class="img-grid mb-4">
+      <div>
+        <img src="guide-screenshots/02-credentials.png" alt="로그인 정보 입력" class="step-img w-full">
+        <p class="img-caption">이메일/비밀번호 입력</p>
+      </div>
+      <div>
+        <img src="guide-screenshots/03-login-result.png" alt="로그인 결과" class="step-img w-full">
+        <p class="img-caption">로그인 성공 — 터미널에 결과 표시, 계속 버튼 활성화</p>
+      </div>
+    </div>
+
+    <div class="bg-green-50 border border-green-200 rounded-lg p-4 text-sm">
+      <p>로그인 성공 시 WhaTap 상태 점이 <span class="text-green-600 font-bold">녹색</span>으로 변경되고, 하단 <strong>계속</strong> 버튼이 활성화됩니다.</p>
+      <p class="mt-1 text-gray-500">WhaTap 계정 이메일과 비밀번호를 입력하세요.</p>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════ -->
+  <!-- Step 2: 프로젝트 선택 -->
+  <!-- ═══════════════════════════════════════ -->
+  <section id="step2" class="mb-14">
+    <div class="flex items-start gap-4 mb-4">
+      <div class="step-num bg-sky-500 text-white">2</div>
+      <div>
+        <h2 class="text-xl font-bold">프로젝트 선택</h2>
+        <p class="text-gray-500 text-sm mt-1">모니터링할 WhaTap 프로젝트를 선택합니다</p>
+      </div>
+    </div>
+    <img src="guide-screenshots/04-project-select.png" alt="프로젝트 선택" class="step-img w-full mb-4">
+    <div class="bg-gray-50 border rounded-lg p-4 text-sm">
+      <p>WhaTap 계정에 연결된 프로젝트가 카드 형태로 표시됩니다. 프로젝트 이름, pcode, 유형(JAVA, NODEJS, PYTHON 등)을 확인하고 클릭하면 모니터링이 시작됩니다.</p>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════ -->
+  <!-- Step 3: 모니터 -->
+  <!-- ═══════════════════════════════════════ -->
+  <section id="step3" class="mb-14">
+    <div class="flex items-start gap-4 mb-4">
+      <div class="step-num bg-indigo-500 text-white">3</div>
+      <div>
+        <h2 class="text-xl font-bold">모니터 — 실시간 모니터링</h2>
+        <p class="text-gray-500 text-sm mt-1">Scout Agent가 3초 간격으로 WhaTap에서 메트릭을 수집합니다</p>
+      </div>
+    </div>
+
+    <img src="guide-screenshots/05-monitor-dashboard.png" alt="모니터 대시보드" class="step-img w-full mb-4">
+    <p class="img-caption mb-4">모니터 대시보드 — 메트릭 수집 시작 직후</p>
+
+    <img src="guide-screenshots/06-monitor-with-data.png" alt="모니터 — 데이터 수집 중" class="step-img w-full mb-4">
+    <p class="img-caption mb-4">데이터 수집 중 — 메트릭 값이 표시되고 이상 감지가 시작된 모습</p>
+
+    <div class="bg-gray-50 border rounded-lg p-4 text-sm space-y-2">
+      <p><strong>상단 요약:</strong> 활성 이슈, 오늘 수정, 마지막 수정, 활성 에이전트</p>
+      <p><strong>메트릭 카드:</strong> CPU, Memory, TPS, Error Rate, Active Tx, Resp Time — 임계값 초과 시 테두리 색상 변경</p>
+      <p><strong>Scout 에이전트 로그:</strong> 수집된 메트릭 기록과 상태(OK / WARN / ISSUE)</p>
+      <p><strong>좌측 사이드바:</strong> 페이지 네비게이션 + 에이전트 상태 (Scout, Analyzer, Fixer, Deployer, Verifier)</p>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════ -->
+  <!-- Step 4: 파이프라인 -->
+  <!-- ═══════════════════════════════════════ -->
+  <section id="step4" class="mb-14">
+    <div class="flex items-start gap-4 mb-4">
+      <div class="step-num bg-indigo-500 text-white">4</div>
+      <div>
+        <h2 class="text-xl font-bold">파이프라인 — 자동 수정 현황</h2>
+        <p class="text-gray-500 text-sm mt-1">이상 감지 시 자동 생성되는 수정 파이프라인 목록</p>
+      </div>
+    </div>
+
+    <img src="guide-screenshots/07-pipeline-list.png" alt="파이프라인 목록" class="step-img w-full mb-4">
+
+    <div class="bg-gray-50 border rounded-lg p-4 text-sm space-y-2">
+      <p><strong>필터:</strong> 전체 / 진행 중 / 완료 / 실패</p>
+      <p><strong>에이전트 상태 바:</strong> 각 에이전트의 현재 상태와 작업 수 실시간 표시</p>
+      <p><strong>파이프라인 항목:</strong> 이슈 타입, 메트릭 값, 임계값, 감지 시간, 5단계 진행 상태(미니 도트)</p>
+      <p class="mt-2"><strong>지원 이슈 유형:</strong></p>
+      <table class="w-full text-xs mt-2 border-collapse">
+        <thead><tr class="border-b"><th class="py-1.5 text-left">이슈 타입</th><th class="text-left">메트릭</th><th class="text-left">심각도</th><th class="text-left">자동 수정</th></tr></thead>
+        <tbody>
+          <tr class="border-b"><td class="py-1.5 font-mono">CPU_HIGH</td><td>CPU 사용률</td><td><span class="text-red-600">CRITICAL</span></td><td>가능 (GitHub 연동 시)</td></tr>
+          <tr class="border-b"><td class="py-1.5 font-mono">MEMORY_HIGH</td><td>메모리 사용률</td><td><span class="text-yellow-600">WARNING</span></td><td>가능</td></tr>
+          <tr class="border-b"><td class="py-1.5 font-mono">ERROR_SPIKE</td><td>에러율</td><td><span class="text-red-600">CRITICAL</span></td><td>가능</td></tr>
+          <tr class="border-b"><td class="py-1.5 font-mono">RESPONSE_SLOW</td><td>응답 시간</td><td><span class="text-yellow-600">WARNING</span></td><td>권장 조치만</td></tr>
+          <tr class="border-b"><td class="py-1.5 font-mono">DISK_FULL</td><td>디스크 사용률</td><td><span class="text-red-600">CRITICAL</span></td><td>가능</td></tr>
+          <tr><td class="py-1.5 font-mono">DB_POOL_EXHAUSTED</td><td>DB 커넥션 풀</td><td><span class="text-red-600">CRITICAL</span></td><td>가능</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════ -->
+  <!-- Step 5: 설정 -->
+  <!-- ═══════════════════════════════════════ -->
+  <section id="step5" class="mb-14">
+    <div class="flex items-start gap-4 mb-4">
+      <div class="step-num bg-indigo-500 text-white">5</div>
+      <div>
+        <h2 class="text-xl font-bold">설정 — 연결, AI 분석, 임계값</h2>
+        <p class="text-gray-500 text-sm mt-1">서비스 연결 상태, AI 분석 제공자, 임계값, 데이터 관리</p>
+      </div>
+    </div>
+
+    <img src="guide-screenshots/11-settings-connection.png" alt="설정 — 연결" class="step-img w-full mb-4">
+
+    <div class="bg-gray-50 border rounded-lg p-4 text-sm space-y-2 mb-4">
+      <p><strong>연결:</strong> SessionCast (세션 녹화), WhaTap (모니터링), GitHub (코드 저장소), 일반 (폴링 간격, 동시 실행)</p>
+      <p><strong>AI 분석:</strong> Claude Code, Codex CLI, Gemini CLI, Cursor CLI, Ollama 중 선택</p>
+      <p><strong>임계값:</strong> CPU, 메모리, 에러율, 응답 시간, 디스크, TPS 감소 비율</p>
+      <p><strong>데이터 관리:</strong> 데이터 초기화, 로그아웃 및 전체 초기화</p>
+    </div>
+
+    <div class="img-grid mb-4">
+      <div>
+        <img src="guide-screenshots/12-settings-ai.png" alt="AI 분석 설정" class="step-img w-full">
+        <p class="img-caption">AI 분석 — Claude Code (기본), SessionCast Relay 연결 상태</p>
+      </div>
+      <div>
+        <img src="guide-screenshots/12-settings-ai-codex.png" alt="AI 제공자 변경" class="step-img w-full">
+        <p class="img-caption">AI 제공자 변경 — Codex CLI 선택 예시</p>
+      </div>
+    </div>
+
+    <img src="guide-screenshots/13-settings-data-mgmt.png" alt="데이터 관리" class="step-img w-full mb-4">
+    <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-sm">
+      <p class="text-gray-500">브라우저를 닫아도 서버가 실행 중이면 분석은 계속됩니다. 데이터는 서버 메모리에 저장되며, 서버 재시작 시 초기화됩니다.</p>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════ -->
+  <!-- 동작 모드: 실제 vs 시뮬레이션 -->
+  <!-- ═══════════════════════════════════════ -->
+  <section id="modes" class="mb-14 border-t pt-10">
+    <div class="flex items-start gap-4 mb-4">
+      <div class="step-num bg-orange-500 text-white">6</div>
+      <div>
+        <h2 class="text-xl font-bold">실제 배포 vs 시뮬레이션 모드</h2>
+        <p class="text-gray-500 text-sm mt-1">GitHub 연동 여부에 따라 배포 방식이 달라집니다</p>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-2 gap-4 mb-6">
+      <div class="mode-card bg-green-50 border border-green-200">
+        <h3 class="font-bold text-green-800 mb-3">실제 배포 모드</h3>
+        <p class="text-sm text-green-700 mb-3">GitHub + SessionCast 연동 시</p>
+        <ol class="text-sm text-green-800 space-y-2">
+          <li><strong>1. Fixer</strong> — AI가 코드 diff를 생성하고 자동 PR 생성</li>
+          <li><strong>2. Deployer</strong> — Git merge → CI/CD 배포 실행, SessionCast로 세션 녹화</li>
+          <li><strong>3. Verifier</strong> — 배포 후 메트릭 재측정, PASS/FAIL 자동 판정</li>
+        </ol>
+        <div class="mt-3 pt-3 border-t border-green-300">
+          <p class="text-xs text-green-600"><strong>필요 조건:</strong> GitHub 토큰 + 저장소 설정</p>
+        </div>
+      </div>
+
+      <div class="mode-card bg-yellow-50 border border-yellow-200">
+        <h3 class="font-bold text-yellow-800 mb-3">시뮬레이션 모드</h3>
+        <p class="text-sm text-yellow-700 mb-3">GitHub 미연동 시 (기본 동작)</p>
+        <ol class="text-sm text-yellow-800 space-y-2">
+          <li><strong>1. Fixer</strong> — AI가 권장 조치 목록을 생성 (코드 수정 대신)</li>
+          <li><strong>2. Deployer</strong> — 시뮬레이션 터미널 UI로 배포 과정 시각화</li>
+          <li><strong>3. Verifier</strong> — Before/After 메트릭 비교, 수동 조치 대기(PENDING)</li>
+        </ol>
+        <div class="mt-3 pt-3 border-t border-yellow-300">
+          <p class="text-xs text-yellow-600"><strong>별도 설정 불필요</strong> — GitHub 미연동 시 자동 전환</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="bg-gray-50 border rounded-lg p-4 text-sm">
+      <p><strong>시뮬레이션 모드는 언제 사용되나요?</strong></p>
+      <ul class="list-disc ml-5 mt-2 space-y-1">
+        <li>GitHub 토큰이 설정되지 않은 경우 (기본 상태)</li>
+        <li>이슈 유형이 코드 수정이 아닌 <strong>설정 변경</strong>이나 <strong>인프라 조치</strong>가 필요한 경우 (예: RESPONSE_SLOW)</li>
+        <li>Fixer Agent가 <code>autoFixAvailable: false</code>로 판단한 경우</li>
+      </ul>
+      <p class="mt-3"><strong>시뮬레이션 모드에서도 다음은 실제로 동작합니다:</strong></p>
+      <ul class="list-disc ml-5 mt-1 space-y-1">
+        <li>Scout Agent의 <strong>메트릭 수집</strong> — WhaTap API에서 실제 메트릭을 폴링</li>
+        <li>Analyzer Agent의 <strong>AI 분석</strong> — SessionCast Relay를 통해 실제 LLM(Claude Code 등)이 분석</li>
+        <li>Verifier Agent의 <strong>메트릭 재확인</strong> — 배포 후 WhaTap에서 실제 메트릭을 다시 측정</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════ -->
+  <!-- 시뮬레이션 모드 상세 -->
+  <!-- ═══════════════════════════════════════ -->
+  <section id="simulation" class="mb-14">
+    <div class="flex items-start gap-4 mb-4">
+      <div class="step-num bg-orange-500 text-white">7</div>
+      <div>
+        <h2 class="text-xl font-bold">시뮬레이션 모드 상세</h2>
+        <p class="text-gray-500 text-sm mt-1">Deployer Agent와 Verifier Agent의 시뮬레이션 동작 흐름</p>
+      </div>
+    </div>
+
+    <h3 class="font-semibold text-sm text-gray-500 mb-2">Deployer Agent — 시뮬레이션 터미널</h3>
+    <img src="guide-screenshots/08d-cpu-high-deployer.png" alt="Deployer 시뮬레이션" class="step-img w-full mb-4">
+
+    <div class="bg-gray-900 text-gray-300 rounded-xl p-5 text-sm mb-4 font-mono leading-relaxed">
+      <p class="text-yellow-400 mb-2">╔══════════════════════════════════════╗</p>
+      <p class="text-yellow-400 mb-2">║  Deployer Agent — 시뮬레이션 모드     ║</p>
+      <p class="text-yellow-400 mb-3">╚══════════════════════════════════════╝</p>
+      <p class="text-gray-500">[상태] GitHub 연동 없음 — 시뮬레이션 모드로 진행</p>
+      <p class="text-gray-500 mb-2">[권장 조치]</p>
+      <p>1) HikariCP maximum-pool-size: 20→50 증가</p>
+      <p>2) server.tomcat.threads.max: 200→400</p>
+      <p class="mb-2">3) 활성 트랜잭션이 높으면 slow query 점검 필요</p>
+      <p class="text-gray-500">[시뮬레이션 배포 로그]</p>
+      <p class="text-green-400">$ kubectl get pods -n production</p>
+      <p>NAME                          READY   STATUS    RESTARTS</p>
+      <p>api-server-7d8f9b6c4-x2k9l   1/1     Running   0</p>
+      <p class="mb-2">api-server-7d8f9b6c4-m4n7p   1/1     Running   0</p>
+      <p class="text-green-400">$ kubectl set env deployment/api-server --dry-run=client</p>
+      <p>→ 설정 변경이 적용되면 pod 재시작이 필요합니다</p>
+      <p class="mt-2 text-gray-500">[결론] 수동 조치 후 Verifier가 메트릭을 재확인합니다</p>
+    </div>
+
+    <div class="bg-orange-50 border border-orange-200 rounded-lg p-4 text-sm mb-6">
+      <p><strong>시뮬레이션 터미널이 보여주는 내용:</strong></p>
+      <ul class="list-disc ml-5 mt-1 space-y-1">
+        <li><strong>[상태]</strong> — GitHub 연동 여부, 시뮬레이션 모드 안내</li>
+        <li><strong>[권장 조치]</strong> — Fixer Agent가 분석한 구체적인 조치 목록</li>
+        <li><strong>[시뮬레이션 배포 로그]</strong> — 실제 배포 시 실행될 명령어 시뮬레이션 (<code>kubectl</code>, <code>docker</code> 등)</li>
+        <li><strong>[결론]</strong> — 다음 단계 안내 (수동 조치 → Verifier 메트릭 재확인)</li>
+      </ul>
+    </div>
+
+    <h3 class="font-semibold text-sm text-gray-500 mb-2">Verifier Agent — Before/After 비교</h3>
+    <img src="guide-screenshots/08e-cpu-high-verifier.png" alt="Verifier 검증" class="step-img w-full mb-4">
+
+    <div class="bg-gray-50 border rounded-lg p-4 text-sm mb-4">
+      <p><strong>시뮬레이션 모드에서의 Verifier 동작:</strong></p>
+      <ol class="list-decimal ml-5 mt-2 space-y-1">
+        <li>배포(시뮬레이션) 후 <strong>10초 대기</strong></li>
+        <li>WhaTap에서 <strong>After 메트릭</strong>을 재측정</li>
+        <li>Before 값과 After 값을 비교하여 판정</li>
+      </ol>
+
+      <div class="mt-4 grid grid-cols-3 gap-3 text-center">
+        <div class="bg-green-50 border border-green-200 rounded-lg p-3">
+          <div class="text-xs text-gray-500 mb-1">PASS</div>
+          <div class="font-bold text-green-700 text-sm">해결됨</div>
+          <div class="text-xs text-gray-400 mt-1">메트릭이 임계값 이내로 회복</div>
+        </div>
+        <div class="bg-blue-50 border border-blue-200 rounded-lg p-3">
+          <div class="text-xs text-gray-500 mb-1">IMPROVING</div>
+          <div class="font-bold text-blue-700 text-sm">개선 중</div>
+          <div class="text-xs text-gray-400 mt-1">메트릭 개선되었으나 아직 임계값 초과</div>
+        </div>
+        <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+          <div class="text-xs text-gray-500 mb-1">PENDING</div>
+          <div class="font-bold text-yellow-700 text-sm">대기 중</div>
+          <div class="text-xs text-gray-400 mt-1">수동 조치 적용 대기</div>
+        </div>
+      </div>
+
+      <p class="mt-3 text-gray-500 text-xs">시뮬레이션 모드에서 PENDING은 정상입니다. 권장 조치를 수동으로 적용한 후, 다음 Scout 폴링 주기에서 자동으로 개선 여부가 확인됩니다.</p>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════ -->
+  <!-- Case: CPU_HIGH -->
+  <!-- ═══════════════════════════════════════ -->
+  <section id="case-cpu" class="mb-14 border-t pt-10">
+    <div class="flex items-start gap-4 mb-4">
+      <div class="step-num bg-red-600 text-white">8</div>
+      <div>
+        <h2 class="text-xl font-bold">CPU_HIGH 파이프라인 상세</h2>
+        <p class="text-gray-500 text-sm mt-1">CPU 사용률 임계값 초과 — 자동 감지 → AI 분석 → 수정안 → 시뮬레이션 배포 → 검증</p>
+      </div>
+    </div>
+
+    <img src="guide-screenshots/09a-cpu-high-header.png" alt="CPU_HIGH 상세 — 헤더" class="step-img w-full mb-4">
+    <div class="bg-gray-50 border rounded-lg p-4 text-sm mb-4">
+      <p>파이프라인 상단에 이슈 타입, 현재 값(2.23), 임계값(1), 5단계 진행 상태 바가 표시됩니다.</p>
+      <p class="mt-1">Scout Agent: <code>whatap mxql --pcode ? --category app_counter --field cpu</code> 명령으로 메트릭을 수집합니다.</p>
+    </div>
+
+    <h3 class="font-semibold text-sm text-gray-500 mb-2">Analyzer Agent — AI 근본 원인 분석 (한국어)</h3>
+    <img src="guide-screenshots/09b-cpu-high-analyzer.png" alt="CPU_HIGH — Analyzer" class="step-img w-full mb-4">
+    <div class="bg-red-50 border border-red-200 rounded-lg p-4 text-sm mb-4">
+      <p><strong>SessionCast Relay → Claude Code</strong>를 통한 실제 LLM 분석 결과:</p>
+      <ul class="list-disc ml-5 mt-1 space-y-1">
+        <li><strong>근본 원인:</strong> "CPU 사용률이 임계값(1.0)의 2.2배를 초과했으며, 응답시간이 1885ms로 높게 측정되어 활성 트랜잭션(8개) 처리 지연이 CPU 부하를 유발하고 있는 것으로 판단됨"</li>
+        <li><strong>상관관계:</strong> ResponseTime:1885ms(정상 대비 높음), ActiveTx:8(처리 중인 트랜잭션 다수), TPS:1(낮은 처리량 대비 높은 응답시간)</li>
+        <li><strong>신뢰도:</strong> 62%</li>
+      </ul>
+    </div>
+
+    <h3 class="font-semibold text-sm text-gray-500 mb-2">Fixer → Deployer → Verifier</h3>
+    <div class="img-grid mb-4">
+      <div>
+        <img src="guide-screenshots/09c-cpu-high-fixer.png" alt="CPU_HIGH — Fixer" class="step-img w-full">
+        <p class="img-caption">Fixer: HikariCP 풀, Tomcat 스레드 조정 권장 조치</p>
+      </div>
+      <div>
+        <img src="guide-screenshots/09d-cpu-high-deployer.png" alt="CPU_HIGH — Deployer" class="step-img w-full">
+        <p class="img-caption">Deployer: 시뮬레이션 배포 터미널 + kubectl 명령어</p>
+      </div>
+    </div>
+    <img src="guide-screenshots/09e-cpu-high-verifier.png" alt="CPU_HIGH — Verifier" class="step-img w-full mb-4">
+    <div class="bg-gray-50 border rounded-lg p-4 text-sm">
+      <p>Verifier Agent가 Before(2.2%) → After(2.2%) 메트릭을 비교합니다. 시뮬레이션 모드에서는 수동 조치를 적용하기 전까지 PENDING 상태입니다.</p>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════ -->
+  <!-- Case: RESPONSE_SLOW -->
+  <!-- ═══════════════════════════════════════ -->
+  <section id="case-slow" class="mb-14 border-t pt-10">
+    <div class="flex items-start gap-4 mb-4">
+      <div class="step-num bg-yellow-500 text-white">9</div>
+      <div>
+        <h2 class="text-xl font-bold">RESPONSE_SLOW 파이프라인 상세</h2>
+        <p class="text-gray-500 text-sm mt-1">응답 시간 지연 감지 — AI 원인 분석 및 권장 조치 제시</p>
+      </div>
+    </div>
+
+    <img src="guide-screenshots/08a-response-slow-header.png" alt="RESPONSE_SLOW 상세" class="step-img w-full mb-4">
+
+    <h3 class="font-semibold text-sm text-gray-500 mb-2">Analyzer Agent — AI 근본 원인 분석 (한국어)</h3>
+    <img src="guide-screenshots/08b-response-slow-analyzer.png" alt="RESPONSE_SLOW — Analyzer" class="step-img w-full mb-4">
+    <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-sm mb-4">
+      <p><strong>LLM 분석 결과:</strong></p>
+      <ul class="list-disc ml-5 mt-1 space-y-1">
+        <li><strong>근본 원인:</strong> "낮은 TPS(1)와 낮은 CPU/메모리 사용률에도 불구하고 응답시간이 3277ms로 급등한 것은 외부 서비스 호출 대기, DB 쿼리 지연, 또는 I/O 블로킹에 의한 처리 병목이 원인"</li>
+        <li><strong>상관관계:</strong> TPS:1 (매우 낮은 처리량), CPU:2.1% (리소스 여유 있음), ActiveTx:6 (소수 트랜잭션이 장시간 점유), DBPool:0.0% (DB 커넥션 풀 미사용 또는 측정 오류)</li>
+        <li><strong>권장 조치:</strong> Slow query 로그 확인, DB 커넥션 풀 사용량 확인, 캐시 적용 가능한 API 점검, N+1 쿼리 패턴 확인</li>
+      </ul>
+    </div>
+
+    <div class="img-grid mb-4">
+      <div>
+        <img src="guide-screenshots/08c-response-slow-fixer.png" alt="RESPONSE_SLOW — Fixer" class="step-img w-full">
+        <p class="img-caption">Fixer: DB 쿼리 및 연결 풀 최적화 권장 조치</p>
+      </div>
+      <div>
+        <img src="guide-screenshots/08d-response-slow-deployer.png" alt="RESPONSE_SLOW — Deployer" class="step-img w-full">
+        <p class="img-caption">Deployer: 시뮬레이션 배포 + 권장 조치 기록</p>
+      </div>
+    </div>
+    <img src="guide-screenshots/08e-response-slow-verifier.png" alt="RESPONSE_SLOW — Verifier" class="step-img w-full mb-4">
+    <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-sm">
+      <p>RESPONSE_SLOW는 <strong>수동 조치</strong>가 필요한 유형입니다. Fixer Agent가 코드 수정 대신 <strong>권장 조치 목록</strong>을 제시하며, Verifier Agent가 수동 조치 적용 후 메트릭 개선 여부를 Before/After로 비교합니다.</p>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════ -->
+  <!-- Case: IN_PROGRESS -->
+  <!-- ═══════════════════════════════════════ -->
+  <section id="case-inprogress" class="mb-14 border-t pt-10">
+    <div class="flex items-start gap-4 mb-4">
+      <div class="step-num bg-blue-600 text-white">10</div>
+      <div>
+        <h2 class="text-xl font-bold">진행 중(IN_PROGRESS) 파이프라인</h2>
+        <p class="text-gray-500 text-sm mt-1">실시간으로 분석이 진행되는 파이프라인의 모습</p>
+      </div>
+    </div>
+
+    <img src="guide-screenshots/10a-cpu-high-header.png" alt="진행 중 파이프라인" class="step-img w-full mb-4">
+
+    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm mb-4">
+      <p><strong>진행 중 상태의 특징:</strong></p>
+      <ul class="list-disc ml-5 mt-1 space-y-1">
+        <li>현재 단계가 <span class="text-blue-600 font-bold">파란색 펄스 애니메이션</span>으로 표시됩니다</li>
+        <li>이후 단계는 <span class="text-gray-400">회색(대기)</span>으로 표시됩니다</li>
+        <li>사이드바에서 해당 에이전트가 <span class="text-blue-600">"N 작업"</span>으로 표시됩니다</li>
+        <li>Scout Agent가 새로운 이슈를 감지할 때마다 자동으로 새 파이프라인이 생성됩니다</li>
+      </ul>
+    </div>
+
+    <div class="img-grid">
+      <div>
+        <img src="guide-screenshots/10b-cpu-high-analyzer.png" alt="진행 중 — Analyzer" class="step-img w-full">
+        <p class="img-caption">Analyzer 단계 진행 중 — AI가 분석 중인 상태</p>
+      </div>
+      <div>
+        <img src="guide-screenshots/10c-cpu-high-fixer.png" alt="진행 중 — Fixer" class="step-img w-full">
+        <p class="img-caption">Fixer 단계 — 수정안/권장 조치 생성 중</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════ -->
+  <!-- Architecture -->
+  <!-- ═══════════════════════════════════════ -->
+  <section id="architecture" class="mb-14 border-t pt-10">
+    <div class="flex items-start gap-4 mb-4">
+      <div class="step-num bg-gray-700 text-white">11</div>
+      <div>
+        <h2 class="text-xl font-bold">파이프라인 흐름 구조</h2>
+        <p class="text-gray-500 text-sm mt-1">5단계 에이전트 파이프라인</p>
+      </div>
+    </div>
+
+    <div class="bg-gray-50 border rounded-xl p-6 mb-6">
+      <div class="flex items-center justify-between text-center text-sm">
+        <div class="flex-1">
+          <div class="w-14 h-14 bg-purple-100 text-purple-700 rounded-full flex items-center justify-center font-bold text-lg mx-auto mb-2">S</div>
+          <div class="font-semibold">Scout</div>
+          <div class="text-xs text-gray-500">이상 감지</div>
+          <div class="text-xs text-gray-400 mt-1">WhaTap CLI</div>
+        </div>
+        <div class="text-gray-300 text-2xl">&#8594;</div>
+        <div class="flex-1">
+          <div class="w-14 h-14 bg-sky-100 text-sky-700 rounded-full flex items-center justify-center font-bold text-lg mx-auto mb-2">A</div>
+          <div class="font-semibold">Analyzer</div>
+          <div class="text-xs text-gray-500">원인 분석</div>
+          <div class="text-xs text-gray-400 mt-1">SessionCast → LLM</div>
+        </div>
+        <div class="text-gray-300 text-2xl">&#8594;</div>
+        <div class="flex-1">
+          <div class="w-14 h-14 bg-gray-200 text-gray-700 rounded-full flex items-center justify-center font-bold text-lg mx-auto mb-2">F</div>
+          <div class="font-semibold">Fixer</div>
+          <div class="text-xs text-gray-500">수정안 생성</div>
+          <div class="text-xs text-gray-400 mt-1">GitHub / AI</div>
+        </div>
+        <div class="text-gray-300 text-2xl">&#8594;</div>
+        <div class="flex-1">
+          <div class="w-14 h-14 bg-orange-100 text-orange-700 rounded-full flex items-center justify-center font-bold text-lg mx-auto mb-2">D</div>
+          <div class="font-semibold">Deployer</div>
+          <div class="text-xs text-gray-500">배포 / 시뮬레이션</div>
+          <div class="text-xs text-gray-400 mt-1">Git/CI/CD</div>
+        </div>
+        <div class="text-gray-300 text-2xl">&#8594;</div>
+        <div class="flex-1">
+          <div class="w-14 h-14 bg-green-100 text-green-700 rounded-full flex items-center justify-center font-bold text-lg mx-auto mb-2">V</div>
+          <div class="font-semibold">Verifier</div>
+          <div class="text-xs text-gray-500">결과 검증</div>
+          <div class="text-xs text-gray-400 mt-1">WhaTap CLI</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="bg-gray-50 border rounded-lg p-4 text-sm space-y-3">
+      <div>
+        <p class="font-semibold text-purple-700">1. Scout Agent <span class="text-xs font-normal text-gray-400">— WhaTap CLI</span></p>
+        <p class="text-gray-600">WhaTap API에서 3초 간격으로 메트릭(CPU, 메모리, TPS, 에러율, 응답시간, DB풀)을 폴링합니다. 임계값 초과 시 자동으로 파이프라인을 생성합니다.</p>
+      </div>
+      <div>
+        <p class="font-semibold text-sky-700">2. Analyzer Agent <span class="text-xs font-normal text-gray-400">— SessionCast Relay → LLM</span></p>
+        <p class="text-gray-600">SessionCast Relay를 통해 로컬 AI CLI(Claude Code 등)에 한국어로 분석을 요청합니다. 근본 원인, 상관 메트릭, 신뢰도를 산출합니다. SessionCast 미연결 시 규칙 기반 폴백 분석을 수행합니다.</p>
+      </div>
+      <div>
+        <p class="font-semibold text-gray-700">3. Fixer Agent <span class="text-xs font-normal text-gray-400">— GitHub / AI</span></p>
+        <p class="text-gray-600">분석 결과를 바탕으로 코드 수정(diff) 또는 권장 조치를 생성합니다. GitHub 연동 시 자동 PR 생성, 미연동 시 권장 조치 목록을 제시합니다.</p>
+      </div>
+      <div>
+        <p class="font-semibold text-orange-700">4. Deployer Agent <span class="text-xs font-normal text-gray-400">— Git/CI/CD 또는 시뮬레이션</span></p>
+        <p class="text-gray-600">GitHub 연동 시 실제 배포(merge → deploy), 미연동 시 <strong>시뮬레이션 모드</strong>로 동작합니다. 시뮬레이션에서는 배포 과정을 터미널 UI로 시각화하며, 권장 조치를 기록합니다.</p>
+      </div>
+      <div>
+        <p class="font-semibold text-green-700">5. Verifier Agent <span class="text-xs font-normal text-gray-400">— WhaTap CLI</span></p>
+        <p class="text-gray-600">배포(또는 시뮬레이션) 후 WhaTap 메트릭을 재확인합니다. Before/After 비교로 해결됨(PASS), 개선 중(IMPROVING), 대기 중(PENDING), 임계값 초과 지속(FAIL)을 판정합니다.</p>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="bg-gray-100 border-t py-6 text-center text-xs text-gray-400">
+  AutoFix Agent 사용자 가이드 &middot; SessionCast &middot; 2026
+</footer>
+
+</body>
+</html>

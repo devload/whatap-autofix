@@ -1,0 +1,50 @@
+rules:
+  - id: cpu_high
+    name: CPU_HIGH
+    metric: cpu
+    condition: "> threshold"
+    severity: CRITICAL
+    autoFix: true
+    description: "CPU 사용량 임계값 초과"
+
+  - id: memory_high
+    name: MEMORY_HIGH
+    metric: memory
+    condition: "> threshold"
+    severity: WARNING
+    autoFix: true
+    description: "메모리 사용량 임계값 초과"
+
+  - id: disk_full
+    name: DISK_FULL
+    metric: disk
+    condition: "> threshold"
+    severity: CRITICAL
+    autoFix: true
+    fixScript: "scripts/cleanup-logs.sh"
+    description: "디스크 사용량 임계값 초과"
+
+  - id: error_spike
+    name: ERROR_SPIKE
+    metric: error_rate
+    condition: "> threshold"
+    severity: CRITICAL
+    autoFix: true
+    description: "에러율 임계값 초과"
+
+  - id: response_slow
+    name: RESPONSE_SLOW
+    metric: response_time
+    condition: "> threshold"
+    severity: WARNING
+    autoFix: false
+    description: "응답 시간 임계값 초과"
+
+  - id: db_pool_exhausted
+    name: DB_POOL_EXHAUSTED
+    metric: db_pool_usage
+    condition: "> 80"
+    severity: CRITICAL
+    autoFix: true
+    fixScript: "scripts/db-cleanup.sh"
+    description: "DB 커넥션 풀 고갈 임박"

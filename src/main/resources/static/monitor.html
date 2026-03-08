@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AutoFix Agent - Monitor</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body class="bg-gray-50 text-gray-900">
+<div class="flex">
+<div id="sidebar"></div>
+<main class="flex-1 p-6 min-h-screen overflow-auto">
+  <div class="flex items-center justify-between mb-5">
+    <h1 class="text-2xl font-bold">모니터</h1>
+    <span class="text-xs text-gray-400 pulse flex items-center gap-1.5"><span class="w-2 h-2 bg-green-500 rounded-full"></span><span class="font-semibold text-purple-600">Scout Agent</span> 폴링 중 — <span id="poll-time">—</span></span>
+  </div>
+
+  <!-- Status Summary -->
+  <div class="flex items-center gap-4 mb-5 bg-white rounded-xl shadow-sm border px-5 py-3">
+    <div class="flex items-center gap-2"><span class="text-sm text-gray-500">활성 이슈</span><a href="pipeline.html" class="text-lg font-bold text-red-600 hover:underline no-underline" id="stat-active">0</a></div>
+    <div class="w-px h-6 bg-gray-200"></div>
+    <div class="flex items-center gap-2"><span class="text-sm text-gray-500">오늘 수정</span><span class="text-lg font-bold text-green-600" id="stat-fixes">0</span></div>
+    <div class="w-px h-6 bg-gray-200"></div>
+    <div class="flex items-center gap-2"><span class="text-sm text-gray-500">마지막 수정</span><span class="text-sm font-medium" id="stat-last">—</span></div>
+    <div class="w-px h-6 bg-gray-200"></div>
+    <div class="flex items-center gap-2"><span class="text-sm text-gray-500">활성 에이전트</span><span class="text-lg font-bold text-purple-600" id="stat-agents">1</span><span class="text-xs text-gray-400">/ 5</span></div>
+  </div>
+
+  <!-- Metric Cards -->
+  <div class="grid grid-cols-6 gap-3 mb-6">
+    <div class="metric-card bg-white rounded-xl p-4 shadow-sm border" id="mc-cpu">
+      <div class="text-xs text-gray-500">CPU</div>
+      <div class="text-2xl font-bold mt-0.5" id="mv-cpu">—</div>
+      <div class="flex items-end gap-px mt-2 h-5" id="spark-cpu"></div>
+    </div>
+    <div class="metric-card bg-white rounded-xl p-4 shadow-sm border" id="mc-mem">
+      <div class="text-xs text-gray-500">Memory</div>
+      <div class="text-2xl font-bold mt-0.5" id="mv-mem">—</div>
+      <div class="flex items-end gap-px mt-2 h-5" id="spark-mem"></div>
+    </div>
+    <div class="metric-card bg-white rounded-xl p-4 shadow-sm border" id="mc-tps">
+      <div class="text-xs text-gray-500">TPS</div>
+      <div class="text-2xl font-bold mt-0.5" id="mv-tps">—</div>
+      <div class="flex items-end gap-px mt-2 h-5" id="spark-tps"></div>
+    </div>
+    <div class="metric-card bg-white rounded-xl p-4 shadow-sm border" id="mc-err">
+      <div class="text-xs text-gray-500">Error Rate</div>
+      <div class="text-2xl font-bold mt-0.5" id="mv-err">—</div>
+      <div class="flex items-end gap-px mt-2 h-5" id="spark-err"></div>
+    </div>
+    <div class="metric-card bg-white rounded-xl p-4 shadow-sm border" id="mc-atx">
+      <div class="text-xs text-gray-500">Active Tx</div>
+      <div class="text-2xl font-bold mt-0.5" id="mv-atx">—</div>
+      <div class="flex items-end gap-px mt-2 h-5" id="spark-atx"></div>
+    </div>
+    <div class="metric-card bg-white rounded-xl p-4 shadow-sm border" id="mc-rt">
+      <div class="text-xs text-gray-500">Resp Time</div>
+      <div class="text-2xl font-bold mt-0.5" id="mv-rt">—</div>
+      <div class="flex items-end gap-px mt-2 h-5" id="spark-rt"></div>
+    </div>
+  </div>
+
+  <!-- Scout Agent Log -->
+  <div class="bg-white rounded-xl shadow-sm border p-5">
+    <div class="flex items-center justify-between mb-3">
+      <h2 class="font-semibold">Scout 에이전트 로그</h2>
+      <span class="text-xs text-gray-400" id="log-count"></span>
+    </div>
+    <table class="w-full text-xs" id="log-table" style="display:none">
+      <thead><tr class="border-b text-gray-500 text-left"><th class="py-2">시간</th><th>카테고리</th><th>주요 메트릭</th><th>상태</th></tr></thead>
+      <tbody id="scout-log"></tbody>
+    </table>
+    <div id="scout-log-empty" class="text-center py-8 text-gray-400 text-sm">Scout Agent가 수집한 메트릭이 여기에 표시됩니다</div>
+  </div>
+</main>
+</div>
+
+<script src="common.js"></script>
+<script>
+renderSidebar('monitor');
+
+const hist = {cpu:[], mem:[], tps:[], err:[], atx:[], rt:[]};
+const logEntries = [];
+
+function pushH(key, val) { hist[key].push(val); if (hist[key].length > 6) hist[key].shift(); }
+
+function setCard(id, display, value, crit, warn) {
+  document.getElementById('mv-' + id).textContent = display;
+  const card = document.getElementById('mc-' + id);
+  card.classList.remove('border-red-300','border-yellow-300','border-2');
+  const valEl = document.getElementById('mv-' + id);
+  valEl.classList.remove('text-red-600','text-orange-600');
+  if (crit > 0 && value >= crit) { card.classList.add('border-red-300','border-2'); valEl.classList.add('text-red-600'); }
+  else if (warn > 0 && value >= warn) { card.classList.add('border-yellow-300','border-2'); valEl.classList.add('text-orange-600'); }
+}
+
+function renderSpark(key) {
+  const el = document.getElementById('spark-' + key);
+  if (!el) return;
+  const vals = hist[key];
+  if (!vals.length) return;
+  const max = Math.max(...vals, 1);
+  el.innerHTML = vals.map(v => {
+    const h = Math.max(8, (v / max) * 100);
+    const pct = max > 0 ? v / max : 0;
+    const c = pct > .9 ? 'bg-red-500' : pct > .7 ? 'bg-orange-400' : pct > .5 ? 'bg-yellow-400' : 'bg-gray-300';
+    return `<div class="spark-bar w-1 rounded-sm ${c}" style="height:${h}%"></div>`;
+  }).join('');
+}
+
+function updateMetrics(m) {
+  if (!m) return;
+  pushH('cpu', m.cpu); pushH('mem', m.memory); pushH('tps', m.tps);
+  pushH('err', m.errorRate); pushH('atx', m.activeTransaction); pushH('rt', m.responseTime);
+
+  setCard('cpu', m.cpu.toFixed(1)+'%', m.cpu, 90, 70);
+  setCard('mem', m.memory.toFixed(1)+'%', m.memory, 85, 70);
+  setCard('tps', m.tps.toLocaleString(), -1, -1, -1);
+  setCard('err', m.errorRate.toFixed(1)+'%', m.errorRate, 3, 1);
+  setCard('atx', m.activeTransaction, m.activeTransaction, 100, 50);
+  setCard('rt', m.responseTime.toLocaleString()+'ms', m.responseTime, 3000, 2000);
+
+  ['cpu','mem','tps','err','atx','rt'].forEach(renderSpark);
+
+  // Scout log entry
+  const time = new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  const isCrit = m.cpu > 90 || m.errorRate > 3;
+  const isWarn = m.cpu > 70 || m.errorRate > 1 || m.activeTransaction > 80;
+  const status = isCrit ? 'ISSUE' : isWarn ? 'WARN' : 'OK';
+  const badgeCls = isCrit ? 'badge-critical' : isWarn ? 'badge-warning' : 'badge-success';
+  const rowBg = isCrit ? 'bg-red-50' : isWarn ? 'bg-yellow-50' : '';
+
+  logEntries.unshift({time, m, status, badgeCls, rowBg});
+  if (logEntries.length > 20) logEntries.pop();
+
+  document.getElementById('log-table').style.display = '';
+  document.getElementById('scout-log-empty').style.display = 'none';
+  document.getElementById('log-count').textContent = logEntries.length + '건';
+
+  document.getElementById('scout-log').innerHTML = logEntries.map(e => `
+    <tr class="timeline-row border-b ${e.rowBg}">
+      <td class="py-2.5 font-mono">${e.time}</td>
+      <td>app_counter</td>
+      <td>cpu=${e.m.cpu.toFixed(1)}, mem=${e.m.memory.toFixed(1)}, tps=${e.m.tps}, err=${e.m.errorRate.toFixed(1)}%, atx=${e.m.activeTransaction}</td>
+      <td><span class="${e.badgeCls} px-1.5 py-0.5 rounded text-xs">${e.status}</span></td>
+    </tr>
+  `).join('');
+}
+
+function updateStats(pipes) {
+  const progress = pipes.filter(p => p.status === 'IN_PROGRESS').length;
+  const completed = pipes.filter(p => p.status === 'COMPLETED').length;
+  document.getElementById('stat-active').textContent = progress;
+  document.getElementById('stat-fixes').textContent = completed;
+  const last = pipes.find(p => p.status === 'COMPLETED');
+  document.getElementById('stat-last').textContent = last ? fmtTime(last.createdAt) : '—';
+  const activeStages = new Set(pipes.filter(p => p.status === 'IN_PROGRESS').map(p => p.currentStage));
+  activeStages.add('SCOUT');
+  document.getElementById('stat-agents').textContent = activeStages.size;
+}
+
+async function poll() {
+  document.getElementById('poll-time').textContent = new Date().toLocaleTimeString('ko-KR');
+  try {
+    const [statusR, pipesR] = await Promise.all([
+      fetch('/api/monitor/status').then(r => r.json()),
+      fetch('/api/pipelines').then(r => r.json())
+    ]);
+    updateMetrics(statusR.metrics);
+    updateStats(pipesR || []);
+    updateSidebarAgents(pipesR || []);
+  } catch(e) { console.error('poll error', e); }
+}
+
+requireConnection().then(ok => { if (ok) { poll(); setInterval(poll, 3000); } });
+</script>
+</body>
+</html>

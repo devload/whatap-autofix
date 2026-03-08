@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AutoFix Agent - Project Select</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body class="bg-gray-100 min-h-screen flex items-center justify-center">
+<div class="w-full max-w-3xl px-4">
+  <div class="text-center mb-8">
+    <h1 class="text-2xl font-bold">프로젝트 선택</h1>
+    <p class="text-sm text-gray-500 mt-1">모니터링할 프로젝트를 선택하세요</p>
+  </div>
+
+  <div class="grid grid-cols-2 gap-4 mb-6" id="proj-grid">
+    <div class="text-center py-12 text-gray-400 col-span-2">프로젝트 목록 불러오는 중...</div>
+  </div>
+
+  <div class="text-center">
+    <button onclick="startMonitoring()" id="btn-start" class="inline-block bg-sky-500 hover:bg-sky-600 text-white px-10 py-2.5 rounded-lg font-semibold transition">모니터링 시작</button>
+  </div>
+</div>
+
+<script>
+let projects = [];
+let selectedIdx = 0;
+
+function esc(s) { if (!s) return ''; const d = document.createElement('div'); d.textContent = String(s); return d.innerHTML; }
+
+function render() {
+  const grid = document.getElementById('proj-grid');
+  if (projects.length === 0) {
+    grid.innerHTML = '<div class="text-center py-12 text-gray-400 col-span-2">프로젝트를 찾을 수 없습니다. <a href="index.html" class="text-sky-500">로그인 페이지로 이동</a></div>';
+    return;
+  }
+  grid.innerHTML = projects.map((p, i) => `
+    <div onclick="pick(${i})" class="proj-card bg-white rounded-xl shadow-sm border-2 ${i === selectedIdx ? 'border-sky-500' : 'border-gray-200'} p-5 cursor-pointer transition hover:shadow-md">
+      <div class="font-semibold">${esc(p.name)}</div>
+      <div class="text-xs text-gray-500 mb-3">pcode: ${p.pcode}
+        <span class="ml-2 bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">${esc(p.platform || p.productType || '')}</span>
+        <span class="ml-1 text-gray-400">${esc(p.status || '')}</span>
+      </div>
+    </div>
+  `).join('');
+}
+
+function pick(idx) {
+  selectedIdx = idx;
+  render();
+}
+
+async function startMonitoring() {
+  const p = projects[selectedIdx];
+  if (!p) return;
+  const btn = document.getElementById('btn-start');
+  btn.disabled = true; btn.textContent = '연결 중...';
+  try {
+    await fetch('/api/auth/whatap/select-project', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({pcode: p.pcode, projectApiToken: p.apiToken, projectName: p.name})
+    });
+    sessionStorage.setItem('af_project_name', p.name + ' (' + p.pcode + ')');
+    location.href = 'monitor.html';
+  } catch(e) {
+    alert('프로젝트 선택 실패: ' + e.message);
+    btn.disabled = false; btn.textContent = '모니터링 시작';
+  }
+}
+
+// Load projects from sessionStorage (set by login page)
+try {
+  projects = JSON.parse(sessionStorage.getItem('af_projects') || '[]');
+} catch(e) { projects = []; }
+
+if (projects.length === 0) {
+  // No projects in session — redirect to login
+  location.href = 'index.html';
+} else {
+  render();
+}
+</script>
+</body>
+</html>

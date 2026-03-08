@@ -1,0 +1,50 @@
+server:
+  port: 8095
+
+autofix:
+  whatap:
+    api-url: https://api.whatap.io
+    api-token: ${WHATAP_API_TOKEN:}
+    pcode: ${WHATAP_PCODE:}
+    polling-interval-seconds: 30
+
+  github:
+    api-url: https://api.github.com
+    token: ${GITHUB_TOKEN:}
+    owner: ${GITHUB_OWNER:}
+    repo: ${GITHUB_REPO:}
+    default-branch: main
+
+  rules:
+    config-path: classpath:rules/default-rules.yml
+
+  thresholds:
+    cpu: 95.0
+    memory: 85.0
+    disk: 85.0
+    error-rate: 3.0
+    tps-drop: 0.5
+    response-time-ms: 3000
+    anr-rate: 1.0
+    crash-free: 99.0
+    cold-start-ms: 3000
+
+sessioncast:
+  relay:
+    url: ${SESSIONCAST_RELAY_URL:wss://relay.sessioncast.io/ws}
+    token: ${SESSIONCAST_TOKEN:}
+  agent:
+    machine-id: ${SESSIONCAST_MACHINE_ID:autofix-agent}
+    label: "AutoFix Agent"
+    auto-connect: true
+  reconnect:
+    enabled: true
+    initial-delay: 2s
+    max-delay: 60s
+    max-attempts: 5
+  api:
+    llm-timeout: 5m
+
+logging:
+  level:
+    io.sessioncast.autofix: DEBUG

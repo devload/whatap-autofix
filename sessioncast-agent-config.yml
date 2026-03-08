@@ -1,0 +1,3 @@
+machineId: autofix-agent
+relay: ${SESSIONCAST_RELAY_URL:wss://relay.sessioncast.io/ws}
+token: ${SESSIONCAST_TOKEN:}

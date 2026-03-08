@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AutoFix Agent — 파이프라인 실행 리포트</title>
+<style>
+  :root {
+    --bg: #0f172a; --surface: #1e293b; --surface2: #334155;
+    --text: #e2e8f0; --dim: #94a3b8; --accent: #38bdf8;
+    --green: #22c55e; --yellow: #eab308; --red: #ef4444;
+    --purple: #a78bfa; --orange: #f97316; --cyan: #06b6d4;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Inter', -apple-system, sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; }
+  .container { max-width: 1100px; margin: 0 auto; padding: 24px; }
+
+  /* Header */
+  .header { text-align: center; padding: 40px 0 32px; border-bottom: 1px solid var(--surface2); margin-bottom: 32px; }
+  .header h1 { font-size: 28px; font-weight: 700; margin-bottom: 8px; }
+  .header h1 span { color: var(--accent); }
+  .header .subtitle { color: var(--dim); font-size: 14px; }
+  .badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+  .badge-live { background: rgba(34,197,94,0.15); color: var(--green); border: 1px solid rgba(34,197,94,0.3); }
+  .badge-sim { background: rgba(234,179,8,0.15); color: var(--yellow); border: 1px solid rgba(234,179,8,0.3); }
+
+  /* Section */
+  .section { margin-bottom: 32px; }
+  .section-title { font-size: 16px; font-weight: 600; color: var(--accent); margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+  .section-title::before { content: ''; width: 4px; height: 18px; background: var(--accent); border-radius: 2px; }
+
+  /* Info Cards */
+  .info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 24px; }
+  .info-card { background: var(--surface); border-radius: 10px; padding: 16px; border: 1px solid var(--surface2); }
+  .info-card .label { font-size: 11px; color: var(--dim); text-transform: uppercase; letter-spacing: 0.5px; }
+  .info-card .value { font-size: 20px; font-weight: 700; margin-top: 4px; }
+  .info-card .sub { font-size: 12px; color: var(--dim); margin-top: 2px; }
+
+  /* Metrics Grid */
+  .metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
+  .metric-box { background: var(--surface); border-radius: 8px; padding: 14px; text-align: center; border: 1px solid var(--surface2); }
+  .metric-box .m-val { font-size: 24px; font-weight: 700; }
+  .metric-box .m-label { font-size: 11px; color: var(--dim); margin-top: 4px; }
+  .metric-box.warn { border-color: var(--yellow); }
+  .metric-box.warn .m-val { color: var(--yellow); }
+  .metric-box.ok .m-val { color: var(--green); }
+
+  /* Pipeline Stage Bar */
+  .stage-bar { display: flex; align-items: center; gap: 0; margin: 24px 0; position: relative; }
+  .stage-node { display: flex; flex-direction: column; align-items: center; flex: 1; position: relative; z-index: 1; }
+  .stage-dot { width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 700; border: 3px solid var(--surface2); background: var(--surface); }
+  .stage-dot.done { background: var(--green); border-color: var(--green); color: #fff; }
+  .stage-dot.active { background: var(--accent); border-color: var(--accent); color: #fff; animation: pulse 2s infinite; }
+  .stage-dot.fail { background: var(--red); border-color: var(--red); color: #fff; }
+  .stage-dot.sim { background: var(--yellow); border-color: var(--yellow); color: #000; }
+  .stage-label { font-size: 11px; margin-top: 6px; color: var(--dim); font-weight: 600; }
+  .stage-sublabel { font-size: 10px; color: var(--dim); }
+  .stage-connector { position: absolute; top: 22px; left: calc(50% + 22px); width: calc(100% - 44px); height: 3px; background: var(--surface2); z-index: 0; }
+  .stage-connector.done { background: var(--green); }
+  .stage-node:last-child .stage-connector { display: none; }
+  @keyframes pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(56,189,248,0.4); } 50% { box-shadow: 0 0 0 12px rgba(56,189,248,0); } }
+
+  /* Timeline */
+  .timeline { position: relative; padding-left: 28px; }
+  .timeline::before { content: ''; position: absolute; left: 10px; top: 0; bottom: 0; width: 2px; background: var(--surface2); }
+  .tl-item { position: relative; margin-bottom: 12px; }
+  .tl-item::before { content: ''; position: absolute; left: -22px; top: 6px; width: 10px; height: 10px; border-radius: 50%; background: var(--surface2); border: 2px solid var(--bg); }
+  .tl-item.scout::before { background: var(--cyan); }
+  .tl-item.analyzer::before { background: var(--purple); }
+  .tl-item.fixer::before { background: var(--orange); }
+  .tl-item.deployer::before { background: var(--accent); }
+  .tl-item.verifier::before { background: var(--green); }
+  .tl-stage { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 2px; }
+  .tl-stage.scout { color: var(--cyan); }
+  .tl-stage.analyzer { color: var(--purple); }
+  .tl-stage.fixer { color: var(--orange); }
+  .tl-stage.deployer { color: var(--accent); }
+  .tl-stage.verifier { color: var(--green); }
+  .tl-msg { font-size: 13px; color: var(--text); }
+  .tl-time { font-size: 10px; color: var(--dim); }
+
+  /* Code Block */
+  .code-block { background: #0d1117; border: 1px solid var(--surface2); border-radius: 8px; padding: 16px; font-family: 'JetBrains Mono', 'Fira Code', monospace; font-size: 12px; line-height: 1.7; overflow-x: auto; white-space: pre; color: var(--dim); margin: 12px 0; }
+  .code-block .cmd { color: var(--green); }
+  .code-block .info { color: var(--accent); }
+  .code-block .warn { color: var(--yellow); }
+  .code-block .header-line { color: var(--orange); font-weight: 700; }
+
+  /* Detail Card */
+  .detail-card { background: var(--surface); border-radius: 10px; padding: 20px; border: 1px solid var(--surface2); margin-bottom: 16px; }
+  .detail-card h3 { font-size: 14px; font-weight: 600; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+  .detail-card h3 .icon { font-size: 18px; }
+  .detail-row { display: flex; gap: 8px; margin-bottom: 6px; font-size: 13px; }
+  .detail-row .dt { color: var(--dim); min-width: 120px; }
+  .detail-row .dd { color: var(--text); font-weight: 500; }
+
+  /* Footer */
+  .footer { text-align: center; padding: 24px 0; border-top: 1px solid var(--surface2); margin-top: 32px; color: var(--dim); font-size: 12px; }
+
+  /* Connection status */
+  .conn-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .conn-card { background: var(--surface); border-radius: 8px; padding: 14px; border: 1px solid var(--surface2); display: flex; align-items: center; gap: 10px; }
+  .conn-dot { width: 10px; height: 10px; border-radius: 50%; }
+  .conn-dot.on { background: var(--green); box-shadow: 0 0 6px var(--green); }
+  .conn-dot.off { background: var(--red); }
+  .conn-name { font-size: 13px; font-weight: 600; }
+  .conn-status { font-size: 11px; color: var(--dim); }
+
+  /* Summary table */
+  table { width: 100%; border-collapse: collapse; margin: 12px 0; }
+  th, td { padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--surface2); font-size: 13px; }
+  th { color: var(--dim); font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; }
+  td { color: var(--text); }
+  tr:hover td { background: rgba(56,189,248,0.05); }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- Header -->
+  <div class="header">
+    <h1><span>AutoFix Agent</span> — 파이프라인 실행 리포트</h1>
+    <div class="subtitle">
+      WhaTap Open API 실시간 연동 테스트 &nbsp;|&nbsp; 2026-03-08 19:36 KST
+      &nbsp;&nbsp;<span class="badge badge-live">LIVE DATA</span>
+      &nbsp;<span class="badge badge-sim">SIMULATION DEPLOY</span>
+    </div>
+  </div>
+
+  <!-- Connection Status -->
+  <div class="section">
+    <div class="section-title">연결 상태</div>
+    <div class="conn-grid">
+      <div class="conn-card">
+        <div class="conn-dot on"></div>
+        <div>
+          <div class="conn-name">WhaTap</div>
+          <div class="conn-status">연결됨 · 9 agents</div>
+        </div>
+      </div>
+      <div class="conn-card">
+        <div class="conn-dot off"></div>
+        <div>
+          <div class="conn-name">GitHub</div>
+          <div class="conn-status">미연결 — 시뮬레이션 모드</div>
+        </div>
+      </div>
+      <div class="conn-card">
+        <div class="conn-dot off"></div>
+        <div>
+          <div class="conn-name">SessionCast</div>
+          <div class="conn-status">미연결 — 세션 녹화 생략</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Real-time Metrics -->
+  <div class="section">
+    <div class="section-title">실시간 메트릭 (WhaTap Java APM Demo)</div>
+    <div class="metrics-grid">
+      <div class="metric-box ok">
+        <div class="m-val">24.8%</div>
+        <div class="m-label">CPU Usage</div>
+      </div>
+      <div class="metric-box warn">
+        <div class="m-val">2,527ms</div>
+        <div class="m-label">Response Time</div>
+      </div>
+      <div class="metric-box warn">
+        <div class="m-val">82</div>
+        <div class="m-label">Active Tx</div>
+      </div>
+      <div class="metric-box ok">
+        <div class="m-val">33</div>
+        <div class="m-label">TPS</div>
+      </div>
+      <div class="metric-box ok">
+        <div class="m-val">9</div>
+        <div class="m-label">Active Agents</div>
+      </div>
+      <div class="metric-box ok">
+        <div class="m-val">0%</div>
+        <div class="m-label">Error Rate</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Pipeline Summary -->
+  <div class="section">
+    <div class="section-title">파이프라인 요약</div>
+    <div class="info-grid">
+      <div class="info-card">
+        <div class="label">Pipeline ID</div>
+        <div class="value" style="font-size:16px; font-family: monospace;">88d0fea5</div>
+      </div>
+      <div class="info-card">
+        <div class="label">이슈 타입</div>
+        <div class="value" style="color: var(--yellow);">RESPONSE_SLOW</div>
+        <div class="sub">응답시간 임계값 초과</div>
+      </div>
+      <div class="info-card">
+        <div class="label">감지 값</div>
+        <div class="value">2,527<span style="font-size:14px; color:var(--dim);">ms</span></div>
+        <div class="sub">임계값: 1,000ms</div>
+      </div>
+      <div class="info-card">
+        <div class="label">최종 상태</div>
+        <div class="value" style="color: var(--yellow);">PENDING</div>
+        <div class="sub">수동 조치 대기</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 5-Agent Pipeline Stages -->
+  <div class="section">
+    <div class="section-title">5-Agent 파이프라인 진행 상황</div>
+    <div class="stage-bar">
+      <div class="stage-node">
+        <div class="stage-dot done">S</div>
+        <div class="stage-label">Scout</div>
+        <div class="stage-sublabel">이상 감지</div>
+        <div class="stage-connector done"></div>
+      </div>
+      <div class="stage-node">
+        <div class="stage-dot done">A</div>
+        <div class="stage-label">Analyzer</div>
+        <div class="stage-sublabel">원인 분석</div>
+        <div class="stage-connector done"></div>
+      </div>
+      <div class="stage-node">
+        <div class="stage-dot done">F</div>
+        <div class="stage-label">Fixer</div>
+        <div class="stage-sublabel">권장 조치</div>
+        <div class="stage-connector done"></div>
+      </div>
+      <div class="stage-node">
+        <div class="stage-dot sim">D</div>
+        <div class="stage-label">Deployer</div>
+        <div class="stage-sublabel">시뮬레이션</div>
+        <div class="stage-connector" style="background: var(--yellow);"></div>
+      </div>
+      <div class="stage-node">
+        <div class="stage-dot sim">V</div>
+        <div class="stage-label">Verifier</div>
+        <div class="stage-sublabel">대기 중</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Stage 1: Scout -->
+  <div class="section">
+    <div class="section-title">Stage 1 — Scout Agent (이상 감지)</div>
+    <div class="detail-card">
+      <h3><span class="icon">🔍</span> WhaTap 메트릭 폴링 → 임계값 초과 감지</h3>
+      <div class="detail-row"><span class="dt">폴링 주기</span><span class="dd">30초</span></div>
+      <div class="detail-row"><span class="dt">데이터 소스</span><span class="dd">WhaTap Open API /open/api/json/spot</span></div>
+      <div class="detail-row"><span class="dt">감지 메트릭</span><span class="dd">response_time = 2,527ms</span></div>
+      <div class="detail-row"><span class="dt">임계값</span><span class="dd">1,000ms</span></div>
+      <div class="detail-row"><span class="dt">심각도</span><span class="dd" style="color: var(--yellow);">WARNING</span></div>
+      <div class="detail-row"><span class="dt">적용 룰</span><span class="dd">response_slow (default-rules.yml)</span></div>
+    </div>
+    <div class="code-block"><span class="cmd">$ curl -H "x-whatap-token: $WHATAP_API_TOKEN" -H "x-whatap-pcode: $WHATAP_PCODE" \</span>
+<span class="cmd">    https://api.whatap.io/open/api/json/spot</span>
+
+<span class="info">{</span>
+  <span class="info">"pcode": "...",</span>
+  <span class="info">"act_agent": "9",</span>
+  <span class="info">"tps": "33",</span>
+  <span class="info">"actx": "82",</span>
+  <span class="warn">"rtime": "2527",      ← 임계값 초과!</span>
+  <span class="info">"cpu": "21.29"</span>
+<span class="info">}</span></div>
+  </div>
+
+  <!-- Stage 2: Analyzer -->
+  <div class="section">
+    <div class="section-title">Stage 2 — Analyzer Agent (원인 분석)</div>
+    <div class="detail-card">
+      <h3><span class="icon">🧠</span> 상관 메트릭 분석 → 근본 원인 도출</h3>
+      <div class="detail-row"><span class="dt">근본 원인</span><span class="dd">Response time degradation</span></div>
+      <div class="detail-row"><span class="dt">신뢰도</span><span class="dd" style="color: var(--yellow);">66%</span></div>
+      <div class="detail-row"><span class="dt">상관 메트릭</span><span class="dd">active_tx: 82, resp_time: 2,527</span></div>
+      <div class="detail-row"><span class="dt">연관 이슈</span><span class="dd">없음</span></div>
+    </div>
+    <table>
+      <thead>
+        <tr><th>상관 메트릭</th><th>값</th><th>임계값</th><th>상태</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Active Transaction</td><td>82</td><td>50</td><td style="color:var(--yellow);">초과</td></tr>
+        <tr><td>Response Time</td><td>2,527ms</td><td>2,000ms</td><td style="color:var(--yellow);">초과</td></tr>
+        <tr><td>CPU</td><td>21.3%</td><td>80%</td><td style="color:var(--green);">정상</td></tr>
+        <tr><td>Error Rate</td><td>0%</td><td>1%</td><td style="color:var(--green);">정상</td></tr>
+        <tr><td>DB Pool</td><td>0%</td><td>70%</td><td style="color:var(--green);">정상</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Stage 3: Fixer -->
+  <div class="section">
+    <div class="section-title">Stage 3 — Fixer Agent (수정 제안)</div>
+    <div class="detail-card">
+      <h3><span class="icon">🔧</span> GitHub 미연결 — 권장 조치 제안</h3>
+      <div class="detail-row"><span class="dt">Fix 타입</span><span class="dd">CONFIG_CHANGE (권장 설정 변경)</span></div>
+      <div class="detail-row"><span class="dt">자동 수정</span><span class="dd" style="color:var(--dim);">불가 (GitHub 미연결)</span></div>
+      <div class="detail-row"><span class="dt">설명</span><span class="dd">응답 시간 지연 — DB 쿼리 및 연결 풀 최적화 권장</span></div>
+    </div>
+    <div class="code-block"><span class="header-line">╔══════════════════════════════════════════════════╗</span>
+<span class="header-line">║  Fixer Agent — 권장 조치 (GitHub 미연결)           ║</span>
+<span class="header-line">╚══════════════════════════════════════════════════╝</span>
+
+<span class="warn">1) Slow query 로그 확인 (2초 이상)</span>
+   → DB에서 실행시간이 긴 쿼리를 식별하고 인덱스 추가
+
+<span class="warn">2) DB 커넥션 풀 사용량 확인</span>
+   → HikariCP maximum-pool-size 조정 검토
+
+<span class="warn">3) 캐시 적용 가능한 API 점검</span>
+   → 반복 호출되는 조회 API에 Redis/Caffeine 캐시 적용
+
+<span class="warn">4) N+1 쿼리 패턴 확인</span>
+   → JPA fetch join 또는 @EntityGraph 적용</div>
+  </div>
+
+  <!-- Stage 4: Deployer -->
+  <div class="section">
+    <div class="section-title">Stage 4 — Deployer Agent (배포)</div>
+    <div class="detail-card">
+      <h3><span class="icon">🚀</span> Simulation Mode — 시뮬레이션 배포</h3>
+      <div class="detail-row"><span class="dt">배포 타겟</span><span class="dd">ote (테스트 환경)</span></div>
+      <div class="detail-row"><span class="dt">모드</span><span class="dd" style="color:var(--yellow);">시뮬레이션 (GitHub 미연결)</span></div>
+      <div class="detail-row"><span class="dt">SessionCast</span><span class="dd" style="color:var(--dim);">세션 녹화 생략</span></div>
+    </div>
+    <div class="code-block"><span class="header-line">╔══════════════════════════════════════╗</span>
+<span class="header-line">║  Deployer Agent — Simulation Mode    ║</span>
+<span class="header-line">╚══════════════════════════════════════╝</span>
+
+<span class="info">[상태] GitHub 연동 없음 — 시뮬레이션 모드로 진행</span>
+
+<span class="warn">[권장 조치]</span>
+1) Slow query 로그 확인 (2초 이상)
+2) DB 커넥션 풀 사용량 확인
+3) 캐시 적용 가능한 API 점검
+4) N+1 쿼리 패턴 확인
+
+<span class="info">[시뮬레이션 배포 로그]</span>
+<span class="cmd">$ kubectl get pods -n production</span>
+NAME                          READY   STATUS    RESTARTS
+api-server-7d8f9b6c4-x2k9l   1/1     Running   0
+api-server-7d8f9b6c4-m4n7p   1/1     Running   0
+
+<span class="cmd">$ kubectl set env deployment/api-server --dry-run=client</span>
+→ 설정 변경이 적용되면 pod 재시작이 필요합니다
+
+<span class="info">[결론] 수동 조치 후 Verifier가 메트릭을 재확인합니다</span></div>
+  </div>
+
+  <!-- Stage 5: Verifier -->
+  <div class="section">
+    <div class="section-title">Stage 5 — Verifier Agent (검증)</div>
+    <div class="detail-card">
+      <h3><span class="icon">✅</span> 배포 후 메트릭 재확인</h3>
+      <div class="detail-row"><span class="dt">대기 시간</span><span class="dd">10초 (메트릭 안정화)</span></div>
+      <div class="detail-row"><span class="dt">Before</span><span class="dd">response_time = 2,527ms</span></div>
+      <div class="detail-row"><span class="dt">After</span><span class="dd">response_time = 2,527ms (변화 없음)</span></div>
+      <div class="detail-row"><span class="dt">결과</span><span class="dd" style="color: var(--yellow);">PENDING — 수동 조치 적용 대기</span></div>
+    </div>
+    <table>
+      <thead>
+        <tr><th>메트릭</th><th>Before</th><th>After</th><th>임계값</th><th>판정</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Response Time</td>
+          <td>2,527ms</td>
+          <td>2,527ms</td>
+          <td>1,000ms</td>
+          <td style="color:var(--yellow);">PENDING</td>
+        </tr>
+        <tr>
+          <td>CPU</td>
+          <td>21.3%</td>
+          <td>21.3%</td>
+          <td>95%</td>
+          <td style="color:var(--green);">OK</td>
+        </tr>
+        <tr>
+          <td>Active Tx</td>
+          <td>82</td>
+          <td>82</td>
+          <td>-</td>
+          <td style="color:var(--dim);">—</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Full Timeline -->
+  <div class="section">
+    <div class="section-title">전체 타임라인</div>
+    <div class="timeline">
+      <div class="tl-item scout">
+        <div class="tl-stage scout">SCOUT</div>
+        <div class="tl-msg">Issue detected: Response time exceeds threshold: 2527.0 (threshold: 1000.0)</div>
+        <div class="tl-time">19:36:29.090</div>
+      </div>
+      <div class="tl-item scout">
+        <div class="tl-stage scout">SCOUT</div>
+        <div class="tl-msg">Handing off to Analyzer Agent</div>
+        <div class="tl-time">19:36:29.092</div>
+      </div>
+      <div class="tl-item analyzer">
+        <div class="tl-stage analyzer">ANALYZER</div>
+        <div class="tl-msg">Starting analysis for RESPONSE_SLOW</div>
+        <div class="tl-time">19:36:29.092</div>
+      </div>
+      <div class="tl-item analyzer">
+        <div class="tl-stage analyzer">ANALYZER</div>
+        <div class="tl-msg">Root cause: Response time degradation (confidence: 66%)</div>
+        <div class="tl-time">19:36:29.116</div>
+      </div>
+      <div class="tl-item analyzer">
+        <div class="tl-stage analyzer">ANALYZER</div>
+        <div class="tl-msg">Handing off to Fixer Agent</div>
+        <div class="tl-time">19:36:29.116</div>
+      </div>
+      <div class="tl-item fixer">
+        <div class="tl-stage fixer">FIXER</div>
+        <div class="tl-msg">Analyzing code for fix proposal</div>
+        <div class="tl-time">19:36:29.116</div>
+      </div>
+      <div class="tl-item fixer">
+        <div class="tl-stage fixer">FIXER</div>
+        <div class="tl-msg">GitHub 미연결 — 권장 조치 제안: 응답 시간 지연 — DB 쿼리 및 연결 풀 최적화 권장</div>
+        <div class="tl-time">19:36:29.125</div>
+      </div>
+      <div class="tl-item fixer">
+        <div class="tl-stage fixer">FIXER</div>
+        <div class="tl-msg">상세: 1) Slow query 로그 확인 · 2) DB 커넥션 풀 확인 · 3) 캐시 API 점검 · 4) N+1 쿼리 확인</div>
+        <div class="tl-time">19:36:29.125</div>
+      </div>
+      <div class="tl-item fixer">
+        <div class="tl-stage fixer">FIXER</div>
+        <div class="tl-msg">Handing off to Deployer Agent</div>
+        <div class="tl-time">19:36:29.125</div>
+      </div>
+      <div class="tl-item deployer">
+        <div class="tl-stage deployer">DEPLOYER</div>
+        <div class="tl-msg">GitHub 미연결 — 시뮬레이션 배포 완료</div>
+        <div class="tl-time">19:36:29.126</div>
+      </div>
+      <div class="tl-item deployer">
+        <div class="tl-stage deployer">DEPLOYER</div>
+        <div class="tl-msg">권장 조치가 기록되었습니다. 수동 적용 후 메트릭 재확인 예정</div>
+        <div class="tl-time">19:36:29.126</div>
+      </div>
+      <div class="tl-item deployer">
+        <div class="tl-stage deployer">DEPLOYER</div>
+        <div class="tl-msg">Handing off to Verifier Agent</div>
+        <div class="tl-time">19:36:29.126</div>
+      </div>
+      <div class="tl-item verifier">
+        <div class="tl-stage verifier">VERIFIER</div>
+        <div class="tl-msg">시뮬레이션 배포 후 메트릭 모니터링 — 10초 대기</div>
+        <div class="tl-time">19:36:29.126</div>
+      </div>
+      <div class="tl-item verifier">
+        <div class="tl-stage verifier">VERIFIER</div>
+        <div class="tl-msg">RESPONSE_SLOW: 2527.0 → 2527.0 (threshold: 1000.0) — PENDING (수동 조치 적용 대기)</div>
+        <div class="tl-time">19:36:39.147</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- API Endpoints -->
+  <div class="section">
+    <div class="section-title">API 엔드포인트 (테스트에 사용됨)</div>
+    <table>
+      <thead>
+        <tr><th>Method</th><th>Endpoint</th><th>설명</th></tr>
+      </thead>
+      <tbody>
+        <tr><td style="color:var(--green);">POST</td><td><code>/api/auth/whatap/login</code></td><td>WhaTap 이메일/비밀번호 로그인 → 토큰 자동 획득</td></tr>
+        <tr><td style="color:var(--green);">POST</td><td><code>/api/auth/whatap/select-project</code></td><td>프로젝트 선택 → pcode + 토큰 자동 설정</td></tr>
+        <tr><td style="color:var(--accent);">GET</td><td><code>/api/auth/whatap/status</code></td><td>WhaTap 연결 상태 확인</td></tr>
+        <tr><td style="color:var(--accent);">GET</td><td><code>/api/monitor/metrics/latest</code></td><td>최신 메트릭 조회</td></tr>
+        <tr><td style="color:var(--accent);">GET</td><td><code>/api/monitor/status</code></td><td>전체 시스템 상태 (메트릭 + 파이프라인 + 에이전트)</td></tr>
+        <tr><td style="color:var(--accent);">GET</td><td><code>/api/pipelines</code></td><td>파이프라인 목록 조회</td></tr>
+        <tr><td style="color:var(--accent);">GET</td><td><code>/api/pipelines/{id}</code></td><td>파이프라인 상세 조회</td></tr>
+        <tr><td style="color:var(--orange);">PUT</td><td><code>/api/settings/thresholds</code></td><td>임계값 설정 변경</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Architecture -->
+  <div class="section">
+    <div class="section-title">아키텍처 요약</div>
+    <div class="code-block"><span class="header-line">                    AutoFix Agent Architecture</span>
+<span class="header-line">    ─────────────────────────────────────────────────</span>
+
+    <span class="info">WhaTap Open API</span>          <span class="info">GitHub REST API</span>        <span class="info">SessionCast API</span>
+         │                        │                       │
+    ┌────┴────┐             ┌────┴────┐            ┌────┴────┐
+    │  Scout  │───────────▶│ Analyzer │──────────▶│  Fixer  │
+    │  Agent  │  30s poll   │  Agent   │  분석      │  Agent  │
+    └─────────┘             └──────────┘           └────┬────┘
+         │                                              │
+    WhaTap Spot              상관 메트릭               GitHub 연결 시:
+    Metrics API              근본 원인 분석              → PR 생성
+                             신뢰도 계산               미연결 시:
+                                                       → 권장 조치 제안
+                                                        │
+                                                   ┌────┴────┐
+                                                   │Deployer │
+                                                   │  Agent  │
+                                                   └────┬────┘
+                                                        │
+                                                   GitHub 연결 시:
+                                                    → 실제 배포
+                                                   미연결 시:
+                                                    → 시뮬레이션 배포
+                                                        │
+                                                   ┌────┴────┐
+                                                   │Verifier │
+                                                   │  Agent  │
+                                                   └─────────┘
+                                                        │
+                                                   WhaTap 재조회
+                                                   Before/After 비교
+                                                   PASS / FAIL / PENDING</div>
+  </div>
+
+  <!-- Footer -->
+  <div class="footer">
+    AutoFix Agent v1.0 — Spring Boot 3.2.5 · Java 17 · WebFlux<br>
+    WhaTap Open API 실시간 연동
+  </div>
+
+</div>
+</body>
+</html>

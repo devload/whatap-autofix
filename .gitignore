@@ -1,0 +1,33 @@
+# Build
+build/
+.gradle/
+out/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.settings/
+.project
+.classpath
+
+# Node
+node_modules/
+package-lock.json
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Scripts (contains local capture configs)
+scripts/
+
+# Mockup
+mockup/
+
+# Logs
+*.log
+
+# Env / Secrets
+.env
+*.env

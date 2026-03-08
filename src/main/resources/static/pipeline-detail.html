@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AutoFix Agent - Pipeline Detail</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body class="bg-gray-50 text-gray-900">
+<div class="flex">
+<div id="sidebar"></div>
+<main class="flex-1 p-6 min-h-screen overflow-auto">
+
+  <!-- Breadcrumb -->
+  <div class="flex items-center gap-2 text-sm mb-4">
+    <a href="pipeline.html" class="text-sky-500 hover:underline no-underline">파이프라인</a>
+    <span class="text-gray-400">/</span>
+    <span class="font-semibold" id="breadcrumb-title">—</span>
+  </div>
+
+  <!-- Header -->
+  <div class="flex items-center gap-3 mb-6" id="detail-header">
+    <span class="px-2.5 py-1 rounded text-sm" id="detail-badge">—</span>
+    <div>
+      <h1 class="text-xl font-bold" id="detail-name">—</h1>
+      <p class="text-sm text-gray-500" id="detail-desc">—</p>
+    </div>
+    <span class="text-xs px-2.5 py-1 rounded font-medium ml-auto" id="detail-agent">—</span>
+  </div>
+
+  <!-- Pipeline Stage Bar -->
+  <div class="bg-white rounded-xl shadow-sm border p-6 mb-6">
+    <div class="pipeline-stages" id="detail-stages"></div>
+  </div>
+
+  <!-- Timeline -->
+  <div class="bg-white rounded-xl shadow-sm border p-6">
+    <div class="stage-timeline" id="detail-timeline"></div>
+  </div>
+
+</main>
+</div>
+
+<div id="toast-container" class="fixed top-4 right-4 z-[60] space-y-2"></div>
+
+<script src="common.js"></script>
+<script>
+renderSidebar('pipeline');
+
+const pipeId = new URLSearchParams(location.search).get('id');
+if (!pipeId) location.href = 'pipeline.html';
+
+function stageClass(p, idx) {
+  const stages = ['SCOUT','ANALYZER','FIXER','DEPLOYER','VERIFIER'];
+  const cur = stages.indexOf(p.currentStage);
+  const isSim = p.deploy && p.deploy.simulated;
+  if (p.status === 'COMPLETED') return 'done';
+  if (p.status === 'FAILED' && idx === cur) return 'failed';
+  if (idx < cur) return 'done';
+  if (idx === cur) {
+    if (isSim && (stages[idx] === 'DEPLOYER' || stages[idx] === 'VERIFIER')) return 'sim';
+    return p.status === 'IN_PROGRESS' ? 'active' : 'done';
+  }
+  return 'pending';
+}
+
+function renderStageBar(p) {
+  const stages = ['SCOUT','ANALYZER','FIXER','DEPLOYER','VERIFIER'];
+  const labels = ['Scout','Analyzer','Fixer','Deployer','Verifier'];
+  const tools = ['WhaTap CLI','SessionCast','GitHub','Git/CI/CD','WhaTap CLI'];
+  const abbr = ['S','A','F','D','V'];
+  const cur = stages.indexOf(p.currentStage);
+
+  document.getElementById('detail-stages').innerHTML = stages.map((s, i) => {
+    const cls = stageClass(p, i);
+    let lineHtml = '';
+    if (i < 4) {
+      const lineCls = i < cur ? 'done' : (i === cur ? 'active' : '');
+      lineHtml = `<div class="stage-line ${lineCls}"></div>`;
+    }
+    const tipTexts = [
+      '이슈 감지 — WhaTap CLI를 통해 임계값 위반 감지',
+      '근본 원인 분석 — SessionCast를 통해 원인, 신뢰도, 상관 이슈 식별',
+      '수정 생성 — GitHub API와 AI 분석을 통해 코드 diff/스크립트 생성',
+      '실행/배포 — Git 커밋, PR, CI/CD를 통해 수정 배포',
+      '결과 검증 — 배포 후 WhaTap CLI를 통해 메트릭 정상화 확인'
+    ];
+    return `<div class="stage-node tip-down" data-tip="${tipTexts[i]}"><div class="stage-circle ${cls}">${abbr[i]}</div><div class="stage-name">${labels[i]}</div><div class="stage-tool">${tools[i]}</div></div>${lineHtml}`;
+  }).join('');
+}
+
+function getLogTime(p, stage) {
+  const logs = (p.logs || []).filter(l => l.stage === stage);
+  if (logs.length > 0) return fmtTime(logs[0].timestamp);
+  return '';
+}
+
+function timelineEntry(p, stage, idx) {
+  const cls = stageClass(p, idx);
+  const agentNames = {SCOUT:'Scout Agent',ANALYZER:'Analyzer Agent',FIXER:'Fixer Agent',DEPLOYER:'Deployer Agent',VERIFIER:'Verifier Agent'};
+  const agentCls = {SCOUT:'agent-scout',ANALYZER:'agent-analyzer',FIXER:'agent-fixer',DEPLOYER:'agent-deployer',VERIFIER:'agent-verifier'};
+  const toolNames = {SCOUT:'WhaTap CLI',ANALYZER:'SessionCast',FIXER:'GitHub',DEPLOYER:'SessionCast REC',VERIFIER:'WhaTap CLI'};
+
+  let statusText = '';
+  if (cls === 'active') statusText = '<span class="text-xs text-blue-500 font-medium ml-2 pulse">분석 중...</span>';
+  else if (cls === 'sim') statusText = '<span class="text-xs text-yellow-600 font-medium ml-2 pulse">시뮬레이션...</span>';
+  else if (cls === 'pending') statusText = '<span class="text-xs text-gray-400 ml-2">대기</span>';
+  else if (cls === 'failed') statusText = '<span class="text-xs text-red-500 font-medium ml-2">실패</span>';
+
+  const time = getLogTime(p, stage);
+  const timeHtml = time ? `<span class="text-xs text-gray-400 ml-auto">${time}</span>` : '';
+  const toolBadge = (cls !== 'pending') ? `<span class="tool-badge ${agentCls[stage]}" style="font-size:9px">${toolNames[stage]}</span>` : '';
+
+  let content = '';
+  if (cls !== 'pending') content = getStageContent(p, stage, cls);
+
+  return `<div class="stage-entry ${cls}">
+    <div class="stage-dot"></div>
+    <div class="stage-header">
+      <span class="stage-label">${agentNames[stage]}</span>
+      ${toolBadge}
+      ${statusText}
+      ${timeHtml}
+    </div>
+    ${content}
+  </div>`;
+}
+
+function getStageContent(p, stage, cls) {
+  switch(stage) {
+    case 'SCOUT': return renderScout(p);
+    case 'ANALYZER': return renderAnalyzer(p);
+    case 'FIXER': return renderFixer(p, cls);
+    case 'DEPLOYER': return renderDeployer(p, cls);
+    case 'VERIFIER': return renderVerifier(p, cls);
+    default: return '';
+  }
+}
+
+function renderScout(p) {
+  if (!p.issue) return '';
+  const metric = p.issue.metric || 'cpu';
+  const cmd = `whatap mxql --pcode ${sessionStorage.getItem('af_pcode') || '?'} --category app_counter --field ${metric}`;
+  let h = `<div class="stage-summary"><code class="text-xs bg-gray-100 px-1 rounded">${esc(cmd)}</code></div>`;
+  h += `<div class="stage-summary mt-1">${esc(metric)} 임계값 ${p.issue.threshold} 초과 — 현재 값 <b>${p.issue.value}</b>. 알림 생성됨.</div>`;
+  return h;
+}
+
+function renderAnalyzer(p) {
+  if (!p.analysis) return '';
+  const conf = Math.round(p.analysis.confidence * 100);
+  const confColor = conf > 80 ? 'bg-green-500' : conf > 50 ? 'bg-orange-500' : 'bg-yellow-500';
+  const confTextColor = conf > 80 ? 'text-green-700' : conf > 50 ? 'text-orange-700' : 'text-yellow-700';
+  const rootBg = conf > 80 ? 'bg-green-50 border-green-200' : 'bg-orange-50 border-orange-200';
+  const rootText = conf > 80 ? 'text-green-800' : 'text-orange-700';
+
+  let h = `<div class="stage-summary mb-2">근본 원인: ${esc(p.analysis.rootCause)}. 신뢰도: <b>${conf}%</b></div>`;
+  h += `<div class="stage-content"><div class="grid grid-cols-3 gap-4">`;
+
+  // Trend chart
+  h += `<div class="bg-gray-50 rounded-lg p-4"><div class="text-xs font-semibold mb-2">추이 (10분)</div>`;
+  h += `<div class="flex items-end gap-1 h-20">`;
+  const bars = [30,35,45,60,78,95];
+  const barColors = ['bg-blue-200','bg-blue-200','bg-blue-300','bg-yellow-400','bg-orange-400','bg-red-500'];
+  bars.forEach((b,i) => { h += `<div class="flex-1 ${barColors[i]} rounded-t" style="height:${b}%"></div>`; });
+  h += `</div></div>`;
+
+  // Correlation
+  h += `<div class="bg-gray-50 rounded-lg p-4"><div class="text-xs font-semibold mb-2">상관관계</div><div class="text-xs space-y-1.5">`;
+  const corr = p.analysis.correlatedMetrics || [];
+  if (corr.length > 0) {
+    corr.forEach(m => {
+      h += `<div class="flex justify-between"><span>${esc(m)}</span><span class="text-orange-500 font-semibold">CORR</span></div>`;
+    });
+  } else {
+    h += `<div class="text-gray-400">직접 상관된 메트릭 없음</div>`;
+  }
+  h += `</div></div>`;
+
+  // Root Cause
+  h += `<div class="${rootBg} border rounded-lg p-4"><div class="text-xs font-semibold mb-2">근본 원인</div>`;
+  h += `<p class="text-xs ${rootText}">${esc(p.analysis.rootCause)}</p>`;
+  h += `<div class="mt-3 flex items-center gap-1">`;
+  h += `<span class="text-xs text-gray-500">신뢰도:</span>`;
+  h += `<div class="w-20 h-2 bg-gray-200 rounded-full"><div class="h-2 ${confColor} rounded-full" style="width:${conf}%"></div></div>`;
+  h += `<span class="text-xs font-bold ${confTextColor}">${conf}%</span>`;
+  h += `</div></div>`;
+
+  h += `</div></div>`;
+  return h;
+}
+
+function renderFixer(p, cls) {
+  if (!p.fix) return '';
+  let h = '';
+
+  if (p.fix.type === 'CODE_CHANGE' && p.fix.diffs && p.fix.diffs.length) {
+    h += `<div class="stage-content">`;
+    h += `<div class="text-xs text-gray-500 mb-3">저장소: <b>${esc(p.fix.repository || '')}</b> · 브랜치: <b>${esc(p.fix.branch || '')}</b> · ${p.fix.diffs.length} 파일 변경</div>`;
+    p.fix.diffs.forEach(d => {
+      h += `<div class="code-editor p-5 rounded-xl overflow-x-auto mb-3 text-sm" style="line-height:1.8">`;
+      h += `<div class="text-gray-500 mb-2">// ${esc(d.filePath)}</div>`;
+      // diff 내용 표시
+      const diffLines = (d.diff || '').split('\n');
+      diffLines.forEach(line => {
+        if (line.startsWith('-') || line.startsWith('→') || line.includes('→')) {
+          h += `<div class="code-line-old"><span class="text-red-400">${esc(line)}</span></div>`;
+        } else if (line.startsWith('+')) {
+          h += `<div class="code-line-new"><span class="text-green-400">${esc(line)}</span></div>`;
+        } else {
+          h += `<div>${esc(line)}</div>`;
+        }
+      });
+      h += `</div>`;
+    });
+    if (cls === 'done') {
+      h += `<div class="bg-green-50 border border-green-200 rounded-lg p-3 text-sm"><span class="text-green-700 font-medium">커밋 푸시 완료</span> · ${esc(p.fix.branch || '')} · Fixer Agent 자동 생성</div>`;
+    }
+    h += `</div>`;
+  } else if (p.fix.type === 'SCRIPT') {
+    h += `<div class="stage-summary">Auto-matched rule: ${esc(p.issueType)} → <code class="bg-gray-100 px-1 rounded text-xs">${esc(p.fix.scriptCommand || p.fix.description)}</code></div>`;
+  } else if (p.fix.type === 'CONFIG_CHANGE') {
+    h += `<div class="stage-summary mb-2">${esc(p.fix.description)}</div>`;
+    if (p.fix.recommendation) {
+      h += `<div class="stage-content"><div class="bg-blue-50 border border-blue-200 rounded-lg p-4 text-xs">`;
+      h += `<div class="font-semibold text-blue-800 mb-2">권장 조치</div>`;
+      h += `<div class="text-blue-700 whitespace-pre-line">${esc(p.fix.recommendation)}</div>`;
+      h += `</div></div>`;
+    }
+    if (!p.fix.autoFixAvailable) {
+      h += `<div class="mt-2 text-xs text-orange-600 font-medium">수동 조치 필요 — GitHub 미연결</div>`;
+    }
+  } else {
+    h += `<div class="stage-summary">${esc(p.fix.description)}</div>`;
+  }
+
+  // Action buttons (if active)
+  if (cls === 'active') {
+    h += `<div class="flex gap-3 mt-4">`;
+    h += `<button onclick="showToast('PR 생성 중...')" class="bg-gray-900 hover:bg-gray-800 text-white px-5 py-2.5 rounded-lg text-sm font-medium">PR 생성</button>`;
+    h += `<button onclick="showToast('Deployer Agent로 전달 중')" class="bg-sky-500 hover:bg-sky-600 text-white px-5 py-2.5 rounded-lg text-sm font-medium">→ Deployer Agent</button>`;
+    h += `<button onclick="showToast('파이프라인 건너뜀')" class="border border-gray-300 hover:bg-gray-50 px-5 py-2.5 rounded-lg text-sm font-medium text-gray-600">건너뛰기</button>`;
+    h += `</div>`;
+  }
+
+  return h;
+}
+
+function renderDeployer(p, cls) {
+  if (!p.deploy) return '';
+  let h = '';
+
+  // Terminal-style execution log
+  h += `<div class="stage-content">`;
+  h += `<div class="terminal rounded-lg p-4 text-xs">`;
+
+  if (p.deploy.simulated) {
+    // Simulation deployment terminal
+    if (p.deploy.executionLog) {
+      const lines = p.deploy.executionLog.split('\n');
+      lines.forEach(line => {
+        if (line.startsWith('$') || line.startsWith('#')) {
+          h += `<div class="text-green-400">${esc(line)}</div>`;
+        } else if (line.includes('Session:') || line.includes('session:')) {
+          h += `<div class="text-gray-500">${esc(line)}</div>`;
+        } else if (line.toLowerCase().includes('error') || line.toLowerCase().includes('fail')) {
+          h += `<div class="text-red-400">${esc(line)}</div>`;
+        } else if (line.toLowerCase().includes('success') || line.toLowerCase().includes('complete') || line.toLowerCase().includes('done')) {
+          h += `<div class="text-green-400">${esc(line)}</div>`;
+        } else if (line.includes('in progress') || line.includes('simulation')) {
+          h += `<div>${esc(line)} ${cls === 'active' ? '<span class="text-yellow-400 pulse">in progress</span>' : ''}</div>`;
+        } else {
+          h += `<div>${esc(line)}</div>`;
+        }
+      });
+    } else {
+      h += `<div class="text-gray-500">Session: ses_af_simulation</div>`;
+      h += `<div class="text-green-400">$ deploy --target ${esc(p.deploy.deployTarget)} --mode simulation</div>`;
+      h += `<div>Simulating deployment...</div>`;
+      if (cls === 'done' || cls === 'sim') h += `<div class="text-green-400">Simulation complete.</div>`;
+    }
+  } else {
+    h += `<div class="text-gray-500">Session: ses_af_deploy</div>`;
+    if (p.deploy.executionLog) {
+      p.deploy.executionLog.split('\n').forEach(line => {
+        if (line.startsWith('$')) h += `<div class="text-green-400">${esc(line)}</div>`;
+        else if (line.toLowerCase().includes('error')) h += `<div class="text-red-400">${esc(line)}</div>`;
+        else if (line.toLowerCase().includes('success')) h += `<div class="text-green-400">${esc(line)}</div>`;
+        else h += `<div>${esc(line)}</div>`;
+      });
+    } else {
+      h += `<div class="text-green-400">$ deploy --target ${esc(p.deploy.deployTarget)}</div>`;
+      if (cls === 'done') h += `<div class="text-green-400">Deployment complete.</div>`;
+    }
+  }
+  h += `</div>`;
+
+  // Failed state: action buttons
+  if (cls === 'failed') {
+    h += `<div class="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700 mt-3">Deployer Agent 실패.</div>`;
+    h += `<div class="flex gap-3 mt-3">`;
+    h += `<button onclick="showToast('Deployer Agent: 재시도 대기열에 추가')" class="bg-sky-500 hover:bg-sky-600 text-white px-4 py-2 rounded-lg text-sm font-medium">재시도</button>`;
+    h += `<button onclick="showToast('Fixer Agent로 라우팅')" class="border border-gray-300 hover:bg-gray-50 px-4 py-2 rounded-lg text-sm font-medium text-gray-600">→ Fixer Agent (코드 수정)</button>`;
+    h += `<button onclick="showToast('에스컬레이션 완료')" class="border border-gray-300 hover:bg-gray-50 px-4 py-2 rounded-lg text-sm font-medium text-gray-600">에스컬레이션</button>`;
+    h += `</div>`;
+  }
+
+  h += `</div>`;
+  return h;
+}
+
+function renderVerifier(p, cls) {
+  if (!p.verification) return '';
+  const v = p.verification;
+  let h = '';
+
+  // CLI command
+  const metric = p.issue ? p.issue.metric : 'cpu';
+  h += `<div class="stage-summary mb-3"><code class="text-xs bg-gray-100 px-1 rounded">whatap mxql --category app_counter --field ${esc(metric)}</code> — 메트릭 재확인</div>`;
+
+  // Before / After cards
+  const beforeVal = v.beforeMetrics ? getMetricVal(v.beforeMetrics, metric) : '—';
+  const afterVal = v.afterMetrics ? getMetricVal(v.afterMetrics, metric) : '—';
+  const passLabel = v.passed ? 'PASS' : (v.summary && v.summary.includes('IMPROVING') ? 'IMPROVING' : 'PENDING');
+  const passBadge = v.passed ? 'badge-success' : 'badge-warning';
+
+  h += `<div class="flex gap-6 items-center">`;
+  h += `<div class="bg-gray-50 rounded-lg p-3 text-center"><div class="text-xs text-gray-500">이전</div><div class="text-lg font-bold text-red-600">${beforeVal}</div></div>`;
+  h += `<span class="text-gray-400 text-xl">→</span>`;
+  h += `<div class="bg-gray-50 rounded-lg p-3 text-center"><div class="text-xs text-gray-500">이후</div><div class="text-lg font-bold ${v.passed ? 'text-green-600' : 'text-orange-600'}">${afterVal}</div></div>`;
+  h += `<span class="${passBadge} px-3 py-1 rounded text-sm font-bold ml-2">${passLabel}</span>`;
+  h += `</div>`;
+
+  // Summary
+  if (v.summary) {
+    h += `<div class="mt-3 text-xs text-gray-600">${esc(v.summary)}</div>`;
+  }
+
+  // Simulation notice
+  if (v.simulated) {
+    h += `<div class="mt-3"><div class="text-xs text-yellow-700 bg-yellow-50 border border-yellow-200 rounded-lg p-3">시뮬레이션 배포 후 검증 — 권장 조치 적용 후 메트릭 개선 여부 확인</div></div>`;
+  }
+
+  return h;
+}
+
+function getMetricVal(metrics, metricName) {
+  if (!metrics) return '—';
+  switch(metricName) {
+    case 'cpu': return metrics.cpu ? metrics.cpu.toFixed(1) + '%' : '—';
+    case 'memory': return metrics.memory ? metrics.memory.toFixed(1) + '%' : '—';
+    case 'error_rate': return metrics.errorRate ? metrics.errorRate.toFixed(1) + '%' : '—';
+    case 'response_time': return metrics.responseTime ? metrics.responseTime.toLocaleString() + 'ms' : '—';
+    case 'db_pool_usage': return metrics.dbPoolUsage ? metrics.dbPoolUsage.toFixed(1) + '%' : '—';
+    case 'disk': return metrics.disk ? metrics.disk.toFixed(1) + '%' : '—';
+    default: return '—';
+  }
+}
+
+function updateDetail(p) {
+  document.getElementById('breadcrumb-title').textContent = p.issueType;
+  document.getElementById('detail-name').textContent = p.issueType;
+  document.getElementById('detail-desc').textContent = getIssueDesc(p);
+
+  const severity = getSeverity(p);
+  const badge = document.getElementById('detail-badge');
+  badge.className = severity.cls + ' px-2.5 py-1 rounded text-sm';
+  badge.textContent = severity.label;
+
+  const agentLabel = getAgentLabel(p);
+  const agentEl = document.getElementById('detail-agent');
+  agentEl.className = 'text-xs ' + agentLabel.cls + ' px-2.5 py-1 rounded font-medium ml-auto';
+  agentEl.textContent = p.status === 'COMPLETED' ? '완료' : agentLabel.name + ' Agent';
+
+  // Save pcode for CLI display
+  if (p.issue && p.issue.metric) {
+    // already saved in sessionStorage
+  }
+
+  renderStageBar(p);
+
+  const stages = ['SCOUT','ANALYZER','FIXER','DEPLOYER','VERIFIER'];
+  document.getElementById('detail-timeline').innerHTML = stages.map((s, i) => timelineEntry(p, s, i)).join('');
+
+  // Session link + total time at bottom
+  if (p.status === 'COMPLETED' || p.status === 'FAILED') {
+    const created = p.createdAt ? new Date(p.createdAt) : null;
+    const lastLog = p.logs && p.logs.length > 0 ? new Date(p.logs[p.logs.length - 1].timestamp) : null;
+    let duration = '';
+    if (created && lastLog) {
+      const sec = Math.round((lastLog - created) / 1000);
+      duration = sec + '초 소요';
+    }
+    let footer = `<div class="mt-4 pt-3 border-t flex items-center gap-2 text-xs text-gray-400">`;
+    footer += `<span>Pipeline ${p.id}</span>`;
+    if (duration) footer += `<span>· ${duration}</span>`;
+    footer += `</div>`;
+    document.getElementById('detail-timeline').innerHTML += footer;
+  }
+}
+
+async function poll() {
+  try {
+    const pipes = await fetch('/api/pipelines').then(r => r.json());
+    const p = (pipes || []).find(p => p.id === pipeId);
+    if (p) updateDetail(p);
+    updateSidebarAgents(pipes || []);
+  } catch(e) { console.error('poll error', e); }
+}
+
+requireConnection().then(ok => { if (ok) { poll(); setInterval(poll, 3000); } });
+</script>
+</body>
+</html>

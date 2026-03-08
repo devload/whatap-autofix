@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  autofix-agent:
+    build: .
+    ports:
+      - "8095:8095"
+    environment:
+      # WhaTap (필수)
+      - WHATAP_API_TOKEN=${WHATAP_API_TOKEN}
+      - WHATAP_PCODE=${WHATAP_PCODE}
+      # SessionCast (선택 — AI 분석용)
+      - SESSIONCAST_TOKEN=${SESSIONCAST_TOKEN:-}
+      - SESSIONCAST_RELAY_URL=${SESSIONCAST_RELAY_URL:-wss://relay.sessioncast.io/ws}
+      # GitHub (선택 — 실제 배포 모드)
+      - GITHUB_TOKEN=${GITHUB_TOKEN:-}
+      - GITHUB_OWNER=${GITHUB_OWNER:-}
+      - GITHUB_REPO=${GITHUB_REPO:-}
+    restart: unless-stopped

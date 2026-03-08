@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AutoFix Agent - Pipeline</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body class="bg-gray-50 text-gray-900">
+<div class="flex">
+<div id="sidebar"></div>
+<main class="flex-1 p-6 min-h-screen overflow-auto">
+  <div class="flex items-center justify-between mb-5">
+    <h1 class="text-2xl font-bold">파이프라인</h1>
+    <div class="flex gap-2" id="filter-btns">
+      <button onclick="filterPipe('all')" class="px-3 py-1 rounded-lg text-xs font-medium bg-gray-900 text-white" id="fbtn-all">전체 <span id="fc-all">(0)</span></button>
+      <button onclick="filterPipe('progress')" class="px-3 py-1 rounded-lg text-xs font-medium bg-gray-100" id="fbtn-progress">진행 중 <span id="fc-progress">(0)</span></button>
+      <button onclick="filterPipe('done')" class="px-3 py-1 rounded-lg text-xs font-medium bg-gray-100" id="fbtn-done">완료 <span id="fc-done">(0)</span></button>
+      <button onclick="filterPipe('failed')" class="px-3 py-1 rounded-lg text-xs font-medium bg-gray-100" id="fbtn-failed">실패 <span id="fc-failed">(0)</span></button>
+    </div>
+  </div>
+
+  <!-- Agent Status Bar -->
+  <div class="bg-white rounded-xl shadow-sm border px-5 py-3 mb-5 flex items-center gap-6" id="agent-bar">
+    <span class="text-xs text-gray-500 font-semibold">에이전트</span>
+    <div class="agent-status" data-tip="이슈 감지 — WhaTap API를 통해 메트릭 폴링"><span class="agent-dot active"></span><span class="font-semibold text-purple-700">Scout</span><span class="text-gray-400">폴링 중</span></div>
+    <div class="agent-status"><span class="agent-dot idle"></span><span class="font-semibold text-gray-400">Analyzer</span><span class="text-gray-400">대기</span></div>
+    <div class="agent-status"><span class="agent-dot idle"></span><span class="font-semibold text-gray-400">Fixer</span><span class="text-gray-400">대기</span></div>
+    <div class="agent-status"><span class="agent-dot idle"></span><span class="font-semibold text-gray-400">Deployer</span><span class="text-gray-400">대기</span></div>
+    <div class="agent-status"><span class="agent-dot idle"></span><span class="font-semibold text-gray-400">Verifier</span><span class="text-gray-400">대기</span></div>
+  </div>
+
+  <!-- Pipeline List -->
+  <div class="space-y-2" id="pipe-list">
+    <div class="text-center py-12 text-gray-400">
+      <div class="text-4xl mb-3">&#9889;</div>
+      <p>Scout Agent가 이상을 감지하면 파이프라인이 자동으로 생성됩니다</p>
+    </div>
+  </div>
+</main>
+</div>
+
+<script src="common.js"></script>
+<script>
+renderSidebar('pipeline');
+
+let allPipes = [];
+let currentFilter = 'all';
+
+function filterPipe(type) {
+  currentFilter = type;
+  ['all','progress','done','failed'].forEach(t => {
+    document.getElementById('fbtn-' + t).className = t === type
+      ? 'px-3 py-1 rounded-lg text-xs font-medium bg-gray-900 text-white'
+      : 'px-3 py-1 rounded-lg text-xs font-medium bg-gray-100';
+  });
+  renderList();
+}
+
+function renderList() {
+  let pipes = [...allPipes];
+  if (currentFilter === 'progress') pipes = pipes.filter(p => p.status === 'IN_PROGRESS');
+  else if (currentFilter === 'done') pipes = pipes.filter(p => p.status === 'COMPLETED');
+  else if (currentFilter === 'failed') pipes = pipes.filter(p => p.status === 'FAILED');
+
+  pipes.sort((a,b) => {
+    if (a.status === 'IN_PROGRESS' && b.status !== 'IN_PROGRESS') return -1;
+    if (b.status === 'IN_PROGRESS' && a.status !== 'IN_PROGRESS') return 1;
+    return new Date(b.createdAt) - new Date(a.createdAt);
+  });
+
+  const list = document.getElementById('pipe-list');
+  if (pipes.length === 0) {
+    list.innerHTML = '<div class="text-center py-12 text-gray-400"><div class="text-4xl mb-3">&#9889;</div><p>선택한 필터에 해당하는 파이프라인이 없습니다</p></div>';
+    return;
+  }
+
+  list.innerHTML = pipes.map(p => {
+    const severity = getSeverity(p);
+    const agentLabel = getAgentLabel(p);
+    const dots = renderMiniDots(p);
+    return `<a href="pipeline-detail.html?id=${encodeURIComponent(p.id)}" class="block bg-white rounded-xl shadow-sm border hover:shadow-md transition cursor-pointer no-underline text-gray-900">
+      <div class="flex items-center gap-3 px-5 py-4">
+        <span class="${severity.cls} px-2 py-0.5 rounded text-xs">${severity.label}</span>
+        <div class="flex-1">
+          <div class="font-semibold">${esc(p.issueType)}</div>
+          <div class="text-gray-500 text-xs mt-0.5">${esc(getIssueDesc(p))} · ${fmtTime(p.createdAt)}</div>
+        </div>
+        <div class="mini-pipeline">${dots}</div>
+        <span class="text-xs ${agentLabel.cls} px-2 py-0.5 rounded font-medium ml-2">${agentLabel.name}</span>
+        <svg class="w-4 h-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+      </div>
+    </a>`;
+  }).join('');
+}
+
+function updateAgentBar(pipes) {
+  const activeStages = new Set(pipes.filter(p => p.status === 'IN_PROGRESS').map(p => p.currentStage));
+  activeStages.add('SCOUT');
+  const taskCount = {};
+  pipes.filter(p => p.status === 'IN_PROGRESS').forEach(p => { taskCount[p.currentStage] = (taskCount[p.currentStage] || 0) + 1; });
+
+  const stages = ['SCOUT','ANALYZER','FIXER','DEPLOYER','VERIFIER'];
+  const names = ['Scout','Analyzer','Fixer','Deployer','Verifier'];
+  const colors = ['text-purple-700','text-sky-700','text-gray-700','text-orange-700','text-green-700'];
+
+  document.getElementById('agent-bar').innerHTML = '<span class="text-xs text-gray-500 font-semibold">에이전트</span>' +
+    stages.map((s, i) => {
+      const active = activeStages.has(s);
+      const count = taskCount[s] || 0;
+      const dotCls = active ? 'active' : 'idle';
+      const nameColor = active ? colors[i] : 'text-gray-400';
+      const status = s === 'SCOUT' ? '폴링 중' : (count > 0 ? count + ' 작업' : '대기');
+      return `<div class="agent-status"><span class="agent-dot ${dotCls}"></span><span class="font-semibold ${nameColor}">${names[i]}</span><span class="text-gray-400">${status}</span></div>`;
+    }).join('');
+}
+
+async function poll() {
+  try {
+    const pipes = await fetch('/api/pipelines').then(r => r.json());
+    allPipes = pipes || [];
+    const progress = allPipes.filter(p => p.status === 'IN_PROGRESS');
+    const done = allPipes.filter(p => p.status === 'COMPLETED');
+    const failed = allPipes.filter(p => p.status === 'FAILED');
+
+    document.getElementById('fc-all').textContent = '(' + allPipes.length + ')';
+    document.getElementById('fc-progress').textContent = '(' + progress.length + ')';
+    document.getElementById('fc-done').textContent = '(' + done.length + ')';
+    document.getElementById('fc-failed').textContent = '(' + failed.length + ')';
+
+    renderList();
+    updateAgentBar(allPipes);
+    updateSidebarAgents(allPipes);
+  } catch(e) { console.error('poll error', e); }
+}
+
+requireConnection().then(ok => { if (ok) { poll(); setInterval(poll, 3000); } });
+</script>
+</body>
+</html>
