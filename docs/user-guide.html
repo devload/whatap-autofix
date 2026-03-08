@@ -70,6 +70,45 @@
   </nav>
 
   <!-- ═══════════════════════════════════════ -->
+  <!-- 서비스 개요 -->
+  <!-- ═══════════════════════════════════════ -->
+  <section class="mb-14">
+    <h2 class="text-xl font-bold mb-4">AutoFix Agent란?</h2>
+
+    <p class="text-gray-700 leading-relaxed mb-6">
+      AutoFix Agent는 <strong>WhaTap 모니터링에서 이상을 감지하면, AI가 자동으로 원인을 분석하고 수정안을 제시하는 서버 운영 자동화 도구</strong>입니다.
+      CPU 급등, 응답 지연, 에러율 증가 등 장애 징후가 포착되면 사람이 개입하기 전에 5단계 파이프라인이 순차적으로 실행됩니다.
+    </p>
+
+    <div class="grid grid-cols-1 md:grid-cols-5 gap-3 mb-6 text-center text-sm">
+      <div class="bg-purple-50 border border-purple-200 rounded-lg p-3">
+        <div class="font-bold text-purple-700 mb-1">Scout</div>
+        <div class="text-xs text-gray-500">WhaTap 메트릭 수집<br>이상 감지</div>
+      </div>
+      <div class="bg-sky-50 border border-sky-200 rounded-lg p-3">
+        <div class="font-bold text-sky-700 mb-1">Analyzer</div>
+        <div class="text-xs text-gray-500">AI 근본 원인 분석<br>상관 메트릭 산출</div>
+      </div>
+      <div class="bg-gray-50 border border-gray-300 rounded-lg p-3">
+        <div class="font-bold text-gray-700 mb-1">Fixer</div>
+        <div class="text-xs text-gray-500">AI 수정안 생성<br>코드 패치 / 권장 조치</div>
+      </div>
+      <div class="bg-orange-50 border border-orange-200 rounded-lg p-3">
+        <div class="font-bold text-orange-700 mb-1">Deployer</div>
+        <div class="text-xs text-gray-500">자동 배포<br>또는 시뮬레이션</div>
+      </div>
+      <div class="bg-green-50 border border-green-200 rounded-lg p-3">
+        <div class="font-bold text-green-700 mb-1">Verifier</div>
+        <div class="text-xs text-gray-500">Before/After 비교<br>해결 여부 판정</div>
+      </div>
+    </div>
+
+    <div class="bg-gray-50 border rounded-lg p-4 text-sm text-gray-600 space-y-2">
+      <p>이 파이프라인에서 <strong>Analyzer</strong>와 <strong>Fixer</strong>는 AI(LLM)를 사용합니다. AutoFix Agent는 AI를 직접 호출하지 않고 <strong>SessionCast</strong>라는 릴레이 서비스를 통해 개발자 로컬에 설치된 AI CLI에 작업을 위임합니다. 아래에서 그 이유를 설명합니다.</p>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════ -->
   <!-- SessionCast 소개 -->
   <!-- ═══════════════════════════════════════ -->
   <section class="mb-14">
