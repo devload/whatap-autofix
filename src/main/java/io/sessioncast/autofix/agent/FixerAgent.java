@@ -95,7 +95,8 @@ public class FixerAgent {
     }
 
     /**
-     * SessionCast Relay → LLM으로 마크다운 형식의 동적 수정안 생성
+     * SessionCast Relay → LLM으로 HTML 형식의 동적 수정안 UI 생성
+     * AI가 Tailwind CSS를 사용하여 시각적으로 풍부한 권장 조치 카드를 직접 렌더링
      */
     private void performLlmRecommendation(Pipeline pipeline) throws Exception {
         String issueType = pipeline.getIssueType();
@@ -122,20 +123,51 @@ public class FixerAgent {
                 - 메트릭: %s, 현재 값: %.1f, 임계값: %.1f
 
                 ## 요청사항
-                위 장애 분석 결과를 바탕으로 구체적인 수정 권장안을 작성해주세요.
+                위 장애 분석 결과를 바탕으로 **즉시 렌더링 가능한 HTML 카드**를 생성해주세요.
 
-                반드시 아래 JSON 형식으로 응답해주세요:
-                {"description": "1줄 요약 (50자 이내)", "recommendation": "마크다운 형식의 상세 권장 조치"}
+                반드시 아래 JSON 형식으로 응답하세요:
+                {"description": "1줄 요약 (50자 이내)", "recommendation": "<HTML코드>"}
 
-                recommendation 마크다운에 반드시 포함할 항목:
-                1. **긴급도 판단** — 현재 상황의 심각성 평가
-                2. **즉시 조치 사항** — 번호 목록으로 구체적 조치
-                3. **설정 변경 예시** — application.yml, JVM 옵션 등을 코드 블록으로
-                4. **근본 원인 해결** — 중장기 개선 방안
-                5. **모니터링 포인트** — 테이블 형식으로 (메트릭명 | 정상범위 | 현재값 | 상태)
+                ### HTML 작성 규칙
 
-                다양한 마크다운 요소(테이블, 코드 블록, 볼드, 리스트 등)를 활용하고,
-                현재 메트릭 값을 기반으로 상황에 맞는 구체적인 수치와 조치를 제시해주세요.
+                1. **Tailwind CSS 클래스**를 사용하세요 (CDN이 이미 로드됨).
+                2. recommendation 값은 `<div>` 안에 들어갈 **HTML 프래그먼트**입니다. `<html>`, `<head>`, `<body>` 태그는 절대 사용하지 마세요.
+                3. 반드시 아래 **5개 섹션**을 `<details open>/<summary>` 접이식 카드로 만드세요:
+
+                **섹션 1: 긴급도 판단**
+                - 상단에 심각도 배지 (bg-red-100 text-red-700, bg-yellow-100 text-yellow-700 등)
+                - 현재 수치와 임계값 비교를 굵은 글씨로
+                - 배경색이 있는 경고 박스 (bg-red-50 border border-red-200 rounded-xl p-4)
+
+                **섹션 2: 즉시 조치 사항**
+                - 각 조치 항목을 아이콘 + 카드로 (flex gap-3 items-start)
+                - 조치 설명 옆에 간단한 목적 설명
+
+                **섹션 3: 설정 변경 예시**
+                - 코드 블록: bg-gray-900 text-gray-100 rounded-lg p-4 font-mono text-xs overflow-x-auto
+                - 코드 위에 파일명/언어 라벨 (text-xs text-gray-400 mb-1)
+                - application.yml, JVM 옵션, SQL 등 실제 코드를 구체적으로
+                - 코드 안의 주석으로 설정 의도를 설명
+
+                **섹션 4: 근본 원인 해결**
+                - 중장기 개선 방안을 카드 리스트로
+
+                **섹션 5: 모니터링 포인트**
+                - 테이블: w-full text-xs border-collapse
+                - 헤더: bg-gray-50 font-semibold
+                - 상태 셀에 컬러 dot (inline-block w-2 h-2 rounded-full bg-red-500 등)
+                - 컬럼: 지표 | 현재값 | 정상범위 | 판단
+
+                ### 디자인 가이드라인
+                - `<details open>` 태그로 각 섹션을 감싸서 접이식으로
+                - `<summary>` 안에 아이콘 + 섹션명 + 간단 요약
+                - summary 스타일: cursor-pointer font-semibold text-sm py-2 flex items-center gap-2
+                - 색상 팔레트: slate/gray 계열 기본, red/orange/yellow/green으로 상태 표시
+                - 코드 블록 안에서 중요한 값은 `<span class="text-green-400">` 등으로 강조
+                - 전체를 `<div class="space-y-3">` 로 감싸세요
+                - 테이블에 현재 실제 메트릭 값을 반영하세요
+
+                현재 메트릭 값을 기반으로 상황에 맞는 **구체적인 수치와 명령어**를 제시하세요.
                 반드시 한국어로 응답하세요.
                 """,
                 issueType, rootCause, confidence * 100, correlatedMetrics,
@@ -146,9 +178,10 @@ public class FixerAgent {
         pipeline.addLog(Pipeline.Stage.FIXER, "LLM 수정안 요청 중... (provider: " + aiProvider + ")");
 
         var requestBuilder = LlmChatRequest.builder()
-                .system("당신은 서버 운영 전문가이자 SRE(Site Reliability Engineer)입니다. "
-                      + "장애 분석 결과를 바탕으로 구체적인 수정 권장안을 마크다운으로 작성합니다. "
-                      + "반드시 한국어로, JSON 형식으로 응답하세요.")
+                .system("당신은 서버 운영 전문가이자 SRE이면서, 동시에 프론트엔드 UI를 설계하는 디자이너입니다. "
+                      + "장애 분석 결과를 바탕으로 Tailwind CSS를 사용한 시각적으로 아름다운 HTML 카드를 직접 생성합니다. "
+                      + "반드시 한국어로, JSON 형식으로 응답하세요. "
+                      + "recommendation 필드에는 순수 HTML만 넣으세요 (마크다운이 아닌 HTML).")
                 .user(prompt);
         if (aiModel != null && !aiModel.isBlank()) {
             requestBuilder.model(aiModel);
@@ -180,10 +213,20 @@ public class FixerAgent {
     private FixProposal parseLlmFixResponse(String content, Pipeline pipeline) {
         try {
             String json = content;
-            int jsonStart = content.indexOf('{');
-            int jsonEnd = content.lastIndexOf('}');
+            // Extract JSON from possible markdown code fences
+            if (json.contains("```json")) {
+                int start = json.indexOf("```json") + 7;
+                int end = json.indexOf("```", start);
+                if (end > start) json = json.substring(start, end).trim();
+            } else if (json.contains("```")) {
+                int start = json.indexOf("```") + 3;
+                int end = json.indexOf("```", start);
+                if (end > start) json = json.substring(start, end).trim();
+            }
+            int jsonStart = json.indexOf('{');
+            int jsonEnd = json.lastIndexOf('}');
             if (jsonStart >= 0 && jsonEnd > jsonStart) {
-                json = content.substring(jsonStart, jsonEnd + 1);
+                json = json.substring(jsonStart, jsonEnd + 1);
             }
 
             var mapper = new com.fasterxml.jackson.databind.ObjectMapper();

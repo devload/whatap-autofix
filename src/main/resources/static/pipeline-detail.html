@@ -204,7 +204,6 @@ function renderFixer(p, cls) {
     p.fix.diffs.forEach(d => {
       h += `<div class="code-editor p-5 rounded-xl overflow-x-auto mb-3 text-sm" style="line-height:1.8">`;
       h += `<div class="text-gray-500 mb-2">// ${esc(d.filePath)}</div>`;
-      // diff 내용 표시
       const diffLines = (d.diff || '').split('\n');
       diffLines.forEach(line => {
         if (line.startsWith('-') || line.startsWith('→') || line.includes('→')) {
@@ -224,18 +223,7 @@ function renderFixer(p, cls) {
   } else if (p.fix.type === 'SCRIPT') {
     h += `<div class="stage-summary">Auto-matched rule: ${esc(p.issueType)} → <code class="bg-gray-100 px-1 rounded text-xs">${esc(p.fix.scriptCommand || p.fix.description)}</code></div>`;
   } else if (p.fix.type === 'CONFIG_CHANGE') {
-    h += `<div class="stage-summary mb-2">${esc(p.fix.description)}</div>`;
-    if (p.fix.recommendation) {
-      const rawMd = p.fix.recommendation;
-      const rendered = DOMPurify.sanitize(marked.parse(rawMd));
-      h += `<div class="stage-content"><div class="bg-blue-50 border border-blue-200 rounded-lg p-4 text-xs">`;
-      h += `<div class="font-semibold text-blue-800 mb-2">권장 조치</div>`;
-      h += `<div class="markdown-content text-blue-900">${rendered}</div>`;
-      h += `</div></div>`;
-    }
-    if (!p.fix.autoFixAvailable) {
-      h += `<div class="mt-2 text-xs text-orange-600 font-medium">수동 조치 필요 — GitHub 미연결</div>`;
-    }
+    h += renderFixerCard(p, cls);
   } else {
     h += `<div class="stage-summary">${esc(p.fix.description)}</div>`;
   }
@@ -249,6 +237,57 @@ function renderFixer(p, cls) {
     h += `</div>`;
   }
 
+  return h;
+}
+
+/* ── AI-Rendered HTML Fixer Card ── */
+function renderFixerCard(p, cls) {
+  const raw = p.fix.recommendation || '';
+  if (!raw) return `<div class="stage-summary">${esc(p.fix.description)}</div>`;
+
+  // Check if the recommendation is HTML (from LLM) or plain text (fallback)
+  const isHtml = raw.includes('<') && (raw.includes('</div>') || raw.includes('</details>') || raw.includes('</table>') || raw.includes('</p>'));
+
+  let rendered;
+  if (isHtml) {
+    // AI-generated HTML: sanitize but preserve Tailwind classes and details/summary
+    rendered = DOMPurify.sanitize(raw, {
+      ADD_TAGS: ['details', 'summary'],
+      ADD_ATTR: ['class', 'open', 'style'],
+      ALLOW_DATA_ATTR: false
+    });
+  } else {
+    // Fallback: markdown or plain text → use marked.js
+    rendered = DOMPurify.sanitize(marked.parse(raw));
+  }
+
+  let h = `<div class="stage-content">`;
+
+  // Card wrapper
+  h += `<div class="fix-card">`;
+
+  // Header
+  h += `<div class="fix-card-header">`;
+  h += `<div class="fix-icon" style="background:#eff6ff;color:#2563eb">🔧</div>`;
+  h += `<div>`;
+  h += `<div class="fix-title">${esc(p.fix.description)}</div>`;
+  h += `<div class="fix-subtitle">Fixer Agent · AI 생성 권장 조치</div>`;
+  h += `</div>`;
+  h += `</div>`;
+
+  // Body — AI-rendered HTML injected directly
+  h += `<div class="fix-card-body ai-rendered">${rendered}</div>`;
+
+  h += `</div>`; // fix-card
+
+  if (!p.fix.autoFixAvailable) {
+    h += `<div class="mt-3 flex items-center gap-2 text-xs text-gray-500">`;
+    h += `<span class="inline-block w-1.5 h-1.5 rounded-full bg-orange-400"></span>`;
+    h += `수동 조치 필요 — GitHub 미연결`;
+    h += `</div>`;
+  }
+
+  h += `</div>`; // stage-content
   return h;
 }
 
