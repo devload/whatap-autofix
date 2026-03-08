@@ -70,6 +70,64 @@
   </nav>
 
   <!-- ═══════════════════════════════════════ -->
+  <!-- SessionCast 소개 -->
+  <!-- ═══════════════════════════════════════ -->
+  <section class="mb-14">
+    <h2 class="text-xl font-bold mb-4">왜 SessionCast가 필요한가?</h2>
+
+    <div class="bg-gray-900 text-gray-100 rounded-xl p-6 mb-6">
+      <div class="flex items-start gap-4 mb-4">
+        <div class="w-10 h-10 bg-sky-500 rounded-lg flex items-center justify-center text-white font-bold text-sm flex-shrink-0">SC</div>
+        <div>
+          <h3 class="font-bold text-white">SessionCast</h3>
+          <p class="text-gray-400 text-sm">로컬 AI CLI를 원격에서 사용할 수 있게 해주는 세션 릴레이 서비스</p>
+        </div>
+      </div>
+      <p class="text-gray-300 text-sm leading-relaxed">
+        AutoFix Agent는 이상 감지 후 <strong class="text-white">AI에게 원인 분석과 수정안 생성을 요청</strong>합니다.
+        이때 외부 AI API를 직접 호출하는 대신, <strong class="text-sky-400">SessionCast Relay</strong>를 통해
+        개발자 로컬 머신에 설치된 AI CLI(Claude Code, Codex 등)에 작업을 위임합니다.
+      </p>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+      <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+        <h4 class="font-bold text-green-800 text-sm mb-2">로컬 AI를 쓰는 이유</h4>
+        <ul class="text-sm text-green-900 space-y-2">
+          <li><strong>API 키 불필요</strong> — 서버에 OpenAI/Anthropic API 키를 넣지 않아도 됩니다. 로컬 CLI가 이미 인증된 상태이므로 별도 과금 설정이 필요 없습니다.</li>
+          <li><strong>모델 선택 자유</strong> — 로컬에 설치된 AI CLI가 지원하는 모델이면 무엇이든 사용 가능합니다. Claude, GPT, 로컬 LLM 등 개발자가 원하는 모델을 선택할 수 있습니다.</li>
+          <li><strong>보안</strong> — 서버 메트릭과 코드 분석 데이터가 개발자 로컬 환경 내에서 처리됩니다. 민감한 운영 데이터가 외부 API로 직접 전송되지 않습니다.</li>
+        </ul>
+      </div>
+      <div class="bg-sky-50 border border-sky-200 rounded-lg p-4">
+        <h4 class="font-bold text-sky-800 text-sm mb-2">동작 흐름</h4>
+        <div class="text-sm text-sky-900 space-y-2">
+          <div class="flex items-center gap-2">
+            <span class="bg-sky-200 text-sky-800 rounded px-2 py-0.5 text-xs font-mono">1</span>
+            <span>AutoFix 서버 → SessionCast Relay로 분석 요청 전송</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="bg-sky-200 text-sky-800 rounded px-2 py-0.5 text-xs font-mono">2</span>
+            <span>Relay가 개발자 로컬의 AI CLI 세션으로 요청 중계</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="bg-sky-200 text-sky-800 rounded px-2 py-0.5 text-xs font-mono">3</span>
+            <span>로컬 AI CLI가 분석/수정안을 생성하여 응답</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="bg-sky-200 text-sky-800 rounded px-2 py-0.5 text-xs font-mono">4</span>
+            <span>응답이 Relay를 통해 AutoFix 서버로 돌아옴</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="bg-amber-50 border border-amber-200 rounded-lg p-4 text-sm">
+      <p><strong>SessionCast 없이도 동작합니다.</strong> SessionCast에 연결되지 않으면 Analyzer는 규칙 기반 폴백 분석을, Fixer는 사전 정의된 권장 조치를 사용합니다. AI 분석의 품질과 맞춤형 수정안을 원할 때 SessionCast를 연결하세요.</p>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════ -->
   <!-- Step 1: 로그인 -->
   <!-- ═══════════════════════════════════════ -->
   <section id="step1" class="mb-14">
