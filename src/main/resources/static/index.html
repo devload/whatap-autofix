@@ -157,8 +157,22 @@ async function doLogin() {
   btn.disabled = false;
 }
 
-// Auto-connect check: if already connected, go to monitor
+// Auto-connect check on page load
 (async function() {
+  // SessionCast 상태 확인
+  try {
+    const r = await fetch('/api/auth/sessioncast/status');
+    const d = await r.json();
+    if (d.connected) {
+      scOk = true;
+      document.getElementById('sc-dot').className = 'ml-auto w-2.5 h-2.5 rounded-full bg-green-500';
+      document.getElementById('sc-status').classList.remove('hidden');
+      document.getElementById('inp-sc-token').value = '(로컬 CLI 토큰 자동 연결)';
+      document.getElementById('inp-sc-token').disabled = true;
+      document.getElementById('sc-msg').textContent = '';
+    }
+  } catch(e) {}
+  // WhaTap 상태 확인
   try {
     const r = await fetch('/api/auth/whatap/status');
     const d = await r.json();
