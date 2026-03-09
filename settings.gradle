@@ -1,1 +1,3 @@
 rootProject.name = 'autofix-agent'
+
+includeBuild('/tmp/sessioncast-java')

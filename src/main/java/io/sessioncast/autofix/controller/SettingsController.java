@@ -1,6 +1,8 @@
 package io.sessioncast.autofix.controller;
 
+import io.sessioncast.autofix.agent.ScoutAgent;
 import io.sessioncast.autofix.config.AutofixProperties;
+import io.sessioncast.autofix.model.MetricProfile;
 import io.sessioncast.autofix.service.PipelineService;
 import io.sessioncast.core.SessionCastClient;
 import lombok.RequiredArgsConstructor;
@@ -9,6 +11,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -20,6 +23,7 @@ public class SettingsController {
 
     private final AutofixProperties props;
     private final PipelineService pipelineService;
+    private final ScoutAgent scoutAgent;
 
     @Autowired(required = false)
     private SessionCastClient sessionCastClient;
@@ -87,6 +91,44 @@ public class SettingsController {
 
     public static String getAiModel() {
         return aiConfig.getOrDefault("model", "");
+    }
+
+    // ─── Profile Thresholds ───
+
+    @GetMapping("/profile-thresholds")
+    public ResponseEntity<?> getProfileThresholds() {
+        MetricProfile profile = scoutAgent.getCurrentProfile();
+        if (profile == null) {
+            return ResponseEntity.ok(Map.of("status", "no_profile", "targets", List.of()));
+        }
+        return ResponseEntity.ok(Map.of("status", "active", "targets", profile.getTargets()));
+    }
+
+    @PutMapping("/profile-thresholds")
+    public ResponseEntity<?> updateProfileThresholds(@RequestBody List<Map<String, Object>> updates) {
+        MetricProfile profile = scoutAgent.getCurrentProfile();
+        if (profile == null) {
+            return ResponseEntity.badRequest().body(Map.of("error", "프로파일이 아직 생성되지 않았습니다"));
+        }
+        int changed = 0;
+        for (Map<String, Object> upd : updates) {
+            String key = (String) upd.get("key");
+            if (key == null) continue;
+            for (MetricProfile.MonitorTarget t : profile.getTargets()) {
+                if (key.equals(t.getKey())) {
+                    if (upd.containsKey("warnThreshold")) {
+                        t.setWarnThreshold(((Number) upd.get("warnThreshold")).doubleValue());
+                    }
+                    if (upd.containsKey("critThreshold")) {
+                        t.setCritThreshold(((Number) upd.get("critThreshold")).doubleValue());
+                    }
+                    changed++;
+                    break;
+                }
+            }
+        }
+        log.info("프로파일 임계값 {} 건 수정됨", changed);
+        return ResponseEntity.ok(Map.of("status", "ok", "changed", changed, "targets", profile.getTargets()));
     }
 
     // ─── Data Reset ───

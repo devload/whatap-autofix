@@ -78,6 +78,29 @@ public class MonitorController {
         }
     }
 
+    @PostMapping("/profile/lower-thresholds")
+    public Map<String, Object> lowerThresholds() {
+        MetricProfile profile = scoutAgent.getCurrentProfile();
+        if (profile == null) {
+            return Map.of("status", "error", "message", "프로파일 없음");
+        }
+        Metric latest = pipelineService.getLatestMetric(currentPcode());
+        Map<String, Object> raw = latest != null ? latest.getRawData() : Map.of();
+        List<Map<String, Object>> changed = new java.util.ArrayList<>();
+        for (MetricProfile.MonitorTarget t : profile.getTargets()) {
+            Object val = raw.get(t.getKey());
+            if (val instanceof Number && ((Number) val).doubleValue() > 0) {
+                double cur = ((Number) val).doubleValue();
+                double oldWarn = t.getWarnThreshold();
+                t.setWarnThreshold(Math.max(1, cur - 1));
+                t.setCritThreshold(Math.max(2, cur * 2));
+                changed.add(Map.of("key", t.getKey(), "currentValue", cur,
+                        "oldWarn", oldWarn, "newWarn", t.getWarnThreshold()));
+            }
+        }
+        return Map.of("status", "ok", "changed", changed);
+    }
+
     @GetMapping("/profile")
     public Map<String, Object> getMetricProfile() {
         MetricProfile profile = scoutAgent.getCurrentProfile();

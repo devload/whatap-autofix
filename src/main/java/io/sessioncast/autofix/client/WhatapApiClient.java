@@ -31,8 +31,8 @@ public class WhatapApiClient {
      * 2차: spot이 비어있거나 DB 프로젝트면 MXQL 폴백
      */
     public Mono<Metric> getSpotMetrics(String productType) {
-        if (isDbProject(productType)) {
-            // DB 프로젝트는 spot API가 안 되므로 바로 MXQL
+        if (isDbProject(productType) || isBrowserProject(productType)) {
+            // DB/Browser 프로젝트는 spot API가 APM 메트릭만 반환하므로 바로 MXQL
             return getMxqlMetrics(productType);
         }
         // 그 외: spot 시도 → 비어있으면 MXQL 폴백
@@ -65,7 +65,9 @@ public class WhatapApiClient {
     @SuppressWarnings("unchecked")
     private Mono<Metric> getMxqlMetrics(String productType) {
         long etime = System.currentTimeMillis();
-        long stime = etime - 10_000; // 최근 10초 (응답 크기 제한)
+        // Browser/RUM은 수집 간격이 길어 5분, 그 외는 10초
+        long window = isBrowserProject(productType) ? 300_000 : 10_000;
+        long stime = etime - window;
 
         String[] categories = getMxqlCategories(productType);
         Map<String, Object> combined = new java.util.concurrent.ConcurrentHashMap<>();
@@ -130,6 +132,12 @@ public class WhatapApiClient {
         return pt.contains("db") || pt.contains("mysql") || pt.contains("postgres")
                 || pt.contains("oracle") || pt.contains("mssql") || pt.contains("redis")
                 || pt.contains("mongo");
+    }
+
+    private boolean isBrowserProject(String productType) {
+        if (productType == null) return false;
+        String pt = productType.toLowerCase();
+        return pt.contains("browser") || pt.contains("rum");
     }
 
     /**
