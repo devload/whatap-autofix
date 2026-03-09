@@ -25,9 +25,6 @@ dependencies {
     implementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml'
     implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310'
 
-    // SessionCast Spring Boot Starter — 자동 SessionCastClient 설정 + LLM Chat API
-    implementation 'io.sessioncast:sessioncast-spring-boot-starter:1.0.0-SNAPSHOT'
-
     compileOnly 'org.projectlombok:lombok'
     annotationProcessor 'org.projectlombok:lombok'
 

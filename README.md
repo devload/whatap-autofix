@@ -224,6 +224,45 @@ autofix-agent/
 
 ---
 
+## 트러블슈팅
+
+### Gradle 빌드 시 `Unsupported class file major version` 에러
+
+```
+BUG! exception in phase 'semantic analysis' in source unit '_BuildScript_'
+Unsupported class file major version 69
+```
+
+Gradle 8.7은 Java 22까지만 지원합니다. Java 23 이상(major version 67+)을 사용 중이면 Java 17로 지정하여 빌드하세요:
+
+```bash
+JAVA_HOME=$(/usr/libexec/java_home -v 17) ./gradlew bootJar
+```
+
+설치된 Java 버전 확인:
+
+```bash
+/usr/libexec/java_home -V   # macOS
+```
+
+### `sessioncast-spring-boot-starter` 의존성을 찾을 수 없음
+
+```
+Could not find io.sessioncast:sessioncast-spring-boot-starter:1.0.0-SNAPSHOT
+```
+
+이 라이브러리는 공개 Maven 저장소에 배포되어 있지 않습니다. 프로젝트 내에 stub 클래스가 포함되어 있으므로 `build.gradle`에서 해당 의존성이 제거된 상태인지 확인하세요. SessionCast 없이도 규칙 기반 폴백 분석으로 정상 동작합니다.
+
+### WhaTap API 401 Unauthorized
+
+```
+401 Unauthorized from GET https://api.whatap.io/open/api/json/spot
+```
+
+환경변수 `WHATAP_API_TOKEN`과 `WHATAP_PCODE`가 올바르게 설정되었는지 확인하세요. 앱 기동 후 웹 UI(http://localhost:8095)에서 WhaTap 계정으로 로그인하면 자동으로 토큰이 갱신됩니다.
+
+---
+
 ## 라이선스
 
 MIT License
