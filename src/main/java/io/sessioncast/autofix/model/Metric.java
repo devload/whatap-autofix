@@ -9,6 +9,8 @@ import java.util.Map;
 @Data
 @Builder
 public class Metric {
+    private String pcode;
+
     // APM 메트릭 (기존 호환)
     private double cpu;
     private double memory;

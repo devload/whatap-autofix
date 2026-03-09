@@ -78,8 +78,17 @@ public class AuthController {
      */
     @PostMapping("/whatap/select-project")
     public ResponseEntity<?> selectProject(@RequestBody SelectProjectRequest request) {
-        if (request.getPcode() == 0 || request.getProjectApiToken() == null) {
-            return ResponseEntity.badRequest().body(Map.of("error", "pcode와 projectApiToken이 필요합니다"));
+        if (request.getPcode() == 0) {
+            return ResponseEntity.badRequest().body(Map.of("error", "pcode가 필요합니다"));
+        }
+
+        // projectApiToken이 없으면 계정 토큰으로 대체
+        if (request.getProjectApiToken() == null || request.getProjectApiToken().isBlank()) {
+            String accountToken = whatapAuthClient.getAccountApiToken();
+            if (accountToken != null && !accountToken.isBlank()) {
+                request.setProjectApiToken(accountToken);
+                log.info("프로젝트 토큰 없음 → 계정 토큰으로 대체");
+            }
         }
 
         // AutofixProperties 업데이트

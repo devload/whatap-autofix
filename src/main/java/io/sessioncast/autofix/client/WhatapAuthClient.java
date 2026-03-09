@@ -23,6 +23,12 @@ public class WhatapAuthClient {
 
     // 로그인 후 유지되는 쿠키들
     private String sessionCookies = "";
+    // 로그인 후 획득한 계정 레벨 API 토큰
+    private String accountApiToken = "";
+
+    public String getAccountApiToken() {
+        return accountApiToken;
+    }
 
     public WhatapAuthClient() {
         ExchangeStrategies strategies = ExchangeStrategies.builder()
@@ -129,6 +135,7 @@ public class WhatapAuthClient {
                             result.setAccountId(body.get("accountId") != null
                                     ? ((Number) body.get("accountId")).longValue() : 0L);
                             result.setSuccess(true);
+                            this.accountApiToken = result.getApiToken();
                             this.sessionCookies = cookieStr;
                         } else {
                             result.setSuccess(false);
@@ -174,6 +181,7 @@ public class WhatapAuthClient {
                             ? ((Number) body.get("accountId")).longValue() : 0L);
                     result.setSuccess(result.getApiToken() != null && !result.getApiToken().isBlank());
                     if (result.isSuccess()) {
+                        accountApiToken = result.getApiToken();
                         log.info("WhaTap API 토큰 획득 성공 (accountId: {})", result.getAccountId());
                     } else {
                         result.setMessage("모바일 API에서 토큰을 받지 못했습니다");

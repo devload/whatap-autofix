@@ -8,6 +8,7 @@ import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Map;
 
 @Slf4j
@@ -25,30 +26,118 @@ public class WhatapApiClient {
     }
 
     /**
-     * WhaTap spot 메트릭을 가져오면서 raw 데이터도 함께 저장.
-     * APM/Browser/DB 등 프로젝트 타입 무관하게 raw JSON을 보존한다.
+     * 프로젝트 타입에 따라 적절한 메트릭 조회 방법 선택.
+     * 1차: /open/api/json/spot 시도
+     * 2차: spot이 비어있거나 DB 프로젝트면 MXQL 폴백
      */
-    public Mono<Metric> getSpotMetrics() {
+    public Mono<Metric> getSpotMetrics(String productType) {
+        if (isDbProject(productType)) {
+            // DB 프로젝트는 spot API가 안 되므로 바로 MXQL
+            return getMxqlMetrics(productType);
+        }
+        // 그 외: spot 시도 → 비어있으면 MXQL 폴백
         return webClient().get()
                 .uri("/open/api/json/spot")
                 .retrieve()
                 .bodyToMono(Map.class)
-                .map(this::parseMetricWithRaw)
+                .flatMap(data -> {
+                    // pcode만 있고 다른 데이터가 없으면 MXQL 폴백
+                    long dataFields = data.keySet().stream()
+                            .filter(k -> !"pcode".equals(k) && !"key".equals(k))
+                            .count();
+                    if (dataFields == 0) {
+                        log.info("Spot API 빈 응답 → MXQL 폴백 (productType: {})", productType);
+                        return getMxqlMetrics(productType);
+                    }
+                    return Mono.just(parseMetricWithRaw(data));
+                })
                 .doOnError(e -> log.error("Failed to fetch WhaTap spot metrics", e))
-                .onErrorReturn(buildEmptyMetric());
+                .onErrorResume(e -> {
+                    log.info("Spot API 실패 → MXQL 폴백 ({})", e.getMessage());
+                    return getMxqlMetrics(productType);
+                });
+    }
+
+    /**
+     * MXQL 기반 메트릭 조회 — 프로젝트 타입에 맞는 카테고리를 자동 선택.
+     * spot API가 없거나 비어있는 프로젝트에 사용.
+     */
+    @SuppressWarnings("unchecked")
+    private Mono<Metric> getMxqlMetrics(String productType) {
+        long etime = System.currentTimeMillis();
+        long stime = etime - 60_000; // 최근 1분
+
+        String[] categories = getMxqlCategories(productType);
+        Map<String, Object> combined = new java.util.concurrent.ConcurrentHashMap<>();
+
+        return reactor.core.publisher.Flux.fromArray(categories)
+                .flatMap(cat -> {
+                    String mxql = "CATEGORY " + cat + "\nTAGLOAD\nSELECT";
+                    return executeMxql(mxql, stime, etime)
+                            .map(result -> {
+                                if (result.containsKey("data")) {
+                                    Object data = result.get("data");
+                                    if (data instanceof List && !((List<?>) data).isEmpty()) {
+                                        Object first = ((List<?>) data).get(0);
+                                        if (first instanceof Map) {
+                                            combined.putAll((Map<String, Object>) first);
+                                        }
+                                    }
+                                }
+                                result.forEach((key, v) -> {
+                                    String k = String.valueOf(key);
+                                    if (!"data".equals(k) && v instanceof Number) {
+                                        combined.put(k, v);
+                                    }
+                                });
+                                return result;
+                            })
+                            .onErrorResume(e -> {
+                                log.debug("MXQL {} 조회 실패: {}", cat, e.getMessage());
+                                return Mono.just(Map.of());
+                            });
+                })
+                .collectList()
+                .map(results -> {
+                    if (combined.isEmpty()) {
+                        log.debug("MXQL 폴백: 데이터 없음 (categories: {})", String.join(",", categories));
+                        return buildEmptyMetric();
+                    }
+                    log.debug("MXQL 폴백: {} 필드 수집됨 (productType: {})", combined.size(), productType);
+                    return parseMetricWithRaw(combined);
+                });
+    }
+
+    /** 프로젝트 타입별 MXQL 카테고리 목록 */
+    private String[] getMxqlCategories(String productType) {
+        if (productType == null) return new String[]{"app_counter"};
+        String pt = productType.toLowerCase();
+        if (isDbProject(productType)) {
+            return new String[]{"db_mysql_counter", "db_pool", "db_counter"};
+        } else if (pt.contains("browser") || pt.contains("rum")) {
+            return new String[]{"rum_page_load_each_page", "rum_error_each_page"};
+        } else if (pt.contains("server") || pt.contains("infra")) {
+            return new String[]{"server_stat"};
+        } else {
+            // APM 계열 폴백
+            return new String[]{"app_counter", "app_host_resource"};
+        }
+    }
+
+    private boolean isDbProject(String productType) {
+        if (productType == null) return false;
+        String pt = productType.toLowerCase();
+        return pt.contains("db") || pt.contains("mysql") || pt.contains("postgres")
+                || pt.contains("oracle") || pt.contains("mssql") || pt.contains("redis")
+                || pt.contains("mongo");
     }
 
     /**
      * Raw spot 데이터만 반환 (AI Scout용)
      */
-    public Mono<Map<String, Object>> getSpotRaw() {
-        return webClient().get()
-                .uri("/open/api/json/spot")
-                .retrieve()
-                .bodyToMono(Map.class)
-                .map(data -> (Map<String, Object>) data)
-                .doOnError(e -> log.error("Failed to fetch WhaTap raw spot", e))
-                .onErrorReturn(Map.of());
+    public Mono<Map<String, Object>> getSpotRaw(String productType) {
+        return getSpotMetrics(productType)
+                .map(m -> m.getRawData() != null ? m.getRawData() : Map.of());
     }
 
     public Mono<Map> getActiveAgents() {

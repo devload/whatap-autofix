@@ -2,6 +2,7 @@ package io.sessioncast.autofix.controller;
 
 import io.sessioncast.autofix.agent.DeployerAgent;
 import io.sessioncast.autofix.agent.FixerAgent;
+import io.sessioncast.autofix.config.AutofixProperties;
 import io.sessioncast.autofix.model.Pipeline;
 import io.sessioncast.autofix.service.PipelineService;
 import lombok.RequiredArgsConstructor;
@@ -19,14 +20,20 @@ public class PipelineController {
     private final PipelineService pipelineService;
     private final FixerAgent fixerAgent;
     private final DeployerAgent deployerAgent;
+    private final AutofixProperties props;
+
+    private String currentPcode() {
+        return props.getWhatap().getPcode();
+    }
 
     @GetMapping
     public List<Pipeline> listPipelines(
             @RequestParam(required = false) Pipeline.PipelineStatus status) {
+        String pcode = currentPcode();
         if (status != null) {
-            return pipelineService.getPipelinesByStatus(status);
+            return pipelineService.getPipelinesByStatus(status, pcode);
         }
-        return pipelineService.getAllPipelines();
+        return pipelineService.getAllPipelines(pcode);
     }
 
     @GetMapping("/{id}")
@@ -38,10 +45,9 @@ public class PipelineController {
 
     @GetMapping("/stats")
     public Map<String, Object> getStats() {
-        return pipelineService.getStats();
+        return pipelineService.getStats(currentPcode());
     }
 
-    // Manual action: deploy a fix
     @PostMapping("/{id}/deploy")
     public ResponseEntity<Pipeline> deploy(@PathVariable String id,
                                            @RequestBody Map<String, String> body) {
@@ -57,7 +63,6 @@ public class PipelineController {
         return ResponseEntity.ok(pipeline);
     }
 
-    // Manual action: skip to next stage or skip pipeline
     @PostMapping("/{id}/skip")
     public ResponseEntity<Pipeline> skip(@PathVariable String id) {
         Pipeline pipeline = pipelineService.getPipeline(id);
@@ -67,7 +72,6 @@ public class PipelineController {
         return ResponseEntity.ok(pipeline);
     }
 
-    // Manual action: retry failed pipeline
     @PostMapping("/{id}/retry")
     public ResponseEntity<Pipeline> retry(@PathVariable String id) {
         Pipeline pipeline = pipelineService.getPipeline(id);
@@ -80,7 +84,6 @@ public class PipelineController {
         pipeline.setStatus(Pipeline.PipelineStatus.IN_PROGRESS);
         pipeline.addLog(failedStage, failedStage + " 단계에서 재시도");
 
-        // Re-trigger the failed stage
         switch (failedStage) {
             case DEPLOYER -> deployerAgent.deploy(pipeline,
                     pipeline.getDeploy() != null ? pipeline.getDeploy().getDeployTarget() : "ote");

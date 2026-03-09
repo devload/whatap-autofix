@@ -26,20 +26,25 @@ public class MonitorController {
     private final AutofixProperties props;
     private final ScoutAgent scoutAgent;
 
+    private String currentPcode() {
+        return props.getWhatap().getPcode();
+    }
+
     @GetMapping("/metrics/latest")
     public Metric getLatestMetric() {
-        return pipelineService.getLatestMetric();
+        return pipelineService.getLatestMetric(currentPcode());
     }
 
     @GetMapping("/metrics/history")
     public List<Metric> getMetricHistory(@RequestParam(defaultValue = "60") int limit) {
-        return pipelineService.getMetricHistory(limit);
+        return pipelineService.getMetricHistory(limit, currentPcode());
     }
 
     @GetMapping("/status")
     public Map<String, Object> getStatus() {
-        Metric latest = pipelineService.getLatestMetric();
-        Map<String, Object> stats = pipelineService.getStats();
+        String pcode = currentPcode();
+        Metric latest = pipelineService.getLatestMetric(pcode);
+        Map<String, Object> stats = pipelineService.getStats(pcode);
         Map<String, Object> result = new HashMap<>();
         result.put("metrics", latest != null ? latest : Map.of());
         result.put("pipelines", stats);

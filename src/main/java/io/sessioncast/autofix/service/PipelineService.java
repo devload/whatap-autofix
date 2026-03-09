@@ -16,11 +16,12 @@ public class PipelineService {
     private final Map<String, Pipeline> pipelines = new ConcurrentHashMap<>();
     private final List<Metric> metricHistory = Collections.synchronizedList(new ArrayList<>());
 
-    public Pipeline createPipeline(Issue issue, Severity severity) {
-        // Check if active pipeline for same issue type already exists
+    public Pipeline createPipeline(Issue issue, Severity severity, String pcode) {
+        // Check if active pipeline for same issue type AND same pcode already exists
         Optional<Pipeline> existing = pipelines.values().stream()
                 .filter(p -> p.getIssueType().equals(issue.getType())
-                        && p.getStatus() == PipelineStatus.IN_PROGRESS)
+                        && p.getStatus() == PipelineStatus.IN_PROGRESS
+                        && Objects.equals(p.getPcode(), pcode))
                 .findFirst();
 
         if (existing.isPresent()) {
@@ -29,13 +30,14 @@ public class PipelineService {
         }
 
         Pipeline pipeline = new Pipeline();
+        pipeline.setPcode(pcode);
         pipeline.setIssueType(issue.getType());
         pipeline.setSeverity(severity);
         pipeline.setIssue(issue);
         pipeline.addLog(Stage.SCOUT, "이슈 감지: " + issue.getDescription());
 
         pipelines.put(pipeline.getId(), pipeline);
-        log.info("Pipeline {} created for {}", pipeline.getId(), issue.getType());
+        log.info("Pipeline {} created for {} (pcode: {})", pipeline.getId(), issue.getType(), pcode);
         return pipeline;
     }
 
@@ -43,13 +45,15 @@ public class PipelineService {
         return pipelines.get(id);
     }
 
-    public List<Pipeline> getAllPipelines() {
-        return new ArrayList<>(pipelines.values());
+    public List<Pipeline> getAllPipelines(String pcode) {
+        return pipelines.values().stream()
+                .filter(p -> Objects.equals(p.getPcode(), pcode))
+                .collect(Collectors.toList());
     }
 
-    public List<Pipeline> getPipelinesByStatus(PipelineStatus status) {
+    public List<Pipeline> getPipelinesByStatus(PipelineStatus status, String pcode) {
         return pipelines.values().stream()
-                .filter(p -> p.getStatus() == status)
+                .filter(p -> p.getStatus() == status && Objects.equals(p.getPcode(), pcode))
                 .collect(Collectors.toList());
     }
 
@@ -115,23 +119,43 @@ public class PipelineService {
         return pipeline;
     }
 
-    public void recordMetric(Metric metric) {
+    public void recordMetric(Metric metric, String pcode) {
+        metric.setPcode(pcode);
         metricHistory.add(metric);
-        // Keep last 1000 entries
         if (metricHistory.size() > 1000) {
             metricHistory.subList(0, metricHistory.size() - 1000).clear();
         }
     }
 
-    public List<Metric> getMetricHistory(int limit) {
-        int size = metricHistory.size();
+    public List<Metric> getMetricHistory(int limit, String pcode) {
+        List<Metric> filtered = metricHistory.stream()
+                .filter(m -> Objects.equals(m.getPcode(), pcode))
+                .collect(Collectors.toList());
+        int size = filtered.size();
         int from = Math.max(0, size - limit);
-        return new ArrayList<>(metricHistory.subList(from, size));
+        return new ArrayList<>(filtered.subList(from, size));
     }
 
+    /** pcode 기준 최신 메트릭 */
+    public Metric getLatestMetric(String pcode) {
+        for (int i = metricHistory.size() - 1; i >= 0; i--) {
+            Metric m = metricHistory.get(i);
+            if (Objects.equals(m.getPcode(), pcode)) return m;
+        }
+        return null;
+    }
+
+    /** 전체에서 최신 메트릭 (에이전트 내부용) */
     public Metric getLatestMetric() {
         if (metricHistory.isEmpty()) return null;
         return metricHistory.get(metricHistory.size() - 1);
+    }
+
+    /** 전체 파이프라인 필터 (에이전트 내부용) */
+    public List<Pipeline> getPipelinesByStatus(PipelineStatus status) {
+        return pipelines.values().stream()
+                .filter(p -> p.getStatus() == status)
+                .collect(Collectors.toList());
     }
 
     public void clearAll() {
@@ -141,24 +165,27 @@ public class PipelineService {
         log.info("모든 파이프라인({}) 및 메트릭 히스토리 초기화 완료", count);
     }
 
-    public Map<String, Object> getStats() {
-        long active = pipelines.values().stream().filter(p -> p.getStatus() == PipelineStatus.IN_PROGRESS).count();
-        long completed = pipelines.values().stream().filter(p -> p.getStatus() == PipelineStatus.COMPLETED).count();
-        long failed = pipelines.values().stream().filter(p -> p.getStatus() == PipelineStatus.FAILED).count();
+    public Map<String, Object> getStats(String pcode) {
+        long active = pipelines.values().stream()
+                .filter(p -> Objects.equals(p.getPcode(), pcode) && p.getStatus() == PipelineStatus.IN_PROGRESS).count();
+        long completed = pipelines.values().stream()
+                .filter(p -> Objects.equals(p.getPcode(), pcode) && p.getStatus() == PipelineStatus.COMPLETED).count();
+        long failed = pipelines.values().stream()
+                .filter(p -> Objects.equals(p.getPcode(), pcode) && p.getStatus() == PipelineStatus.FAILED).count();
         return Map.of(
-                "total", pipelines.size(),
+                "total", active + completed + failed,
                 "active", active,
                 "completed", completed,
                 "failed", failed,
-                "activeAgents", countActiveAgents()
+                "activeAgents", countActiveAgents(pcode)
         );
     }
 
-    private int countActiveAgents() {
+    private int countActiveAgents(String pcode) {
         Set<Stage> activeStages = pipelines.values().stream()
-                .filter(p -> p.getStatus() == PipelineStatus.IN_PROGRESS)
+                .filter(p -> Objects.equals(p.getPcode(), pcode) && p.getStatus() == PipelineStatus.IN_PROGRESS)
                 .map(Pipeline::getCurrentStage)
                 .collect(Collectors.toSet());
-        return activeStages.size() + 1; // +1 for Scout (always polling)
+        return activeStages.size() + 1; // +1 for Scout
     }
 }

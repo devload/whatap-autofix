@@ -79,10 +79,11 @@ public class ScoutAgent {
     public void poll() {
         log.debug("Scout Agent: polling metrics...");
 
-        whatapClient.getSpotMetrics()
+        String productType = props.getWhatap().getProductType();
+        whatapClient.getSpotMetrics(productType)
                 .subscribe(metric -> {
                     metric.setProjectType(props.getWhatap().getProductType());
-                    pipelineService.recordMetric(metric);
+                    pipelineService.recordMetric(metric, props.getWhatap().getPcode());
                     pollCount++;
 
                     if (sessionCastClient == null) {
@@ -94,6 +95,10 @@ public class ScoutAgent {
                     // 1단계: 프로파일이 없으면 Discovery
                     if (currentProfile == null && !discoveryInProgress) {
                         performDiscovery(metric);
+                        // Discovery 실패해도 룰 기반 감지는 계속 동작
+                        if (currentProfile == null) {
+                            fallbackRuleBased(metric);
+                        }
                         return;
                     }
 
@@ -476,7 +481,7 @@ public class ScoutAgent {
             severity = rule != null ? rule.getSeverity() : Severity.WARNING;
         }
 
-        Pipeline pipeline = pipelineService.createPipeline(issue, severity);
+        Pipeline pipeline = pipelineService.createPipeline(issue, severity, props.getWhatap().getPcode());
 
         if (pipeline.getCurrentStage() == Pipeline.Stage.SCOUT) {
             pipeline.advanceTo(Pipeline.Stage.ANALYZER);

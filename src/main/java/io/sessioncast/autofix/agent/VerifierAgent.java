@@ -44,7 +44,7 @@ public class VerifierAgent {
 
         Metric afterMetrics = null;
         try {
-            afterMetrics = whatapClient.getSpotMetrics()
+            afterMetrics = whatapClient.getSpotMetrics(null)
                     .timeout(Duration.ofSeconds(10))
                     .block();
         } catch (Exception e) {
@@ -68,7 +68,7 @@ public class VerifierAgent {
         }
 
         // 메트릭 저장
-        pipelineService.recordMetric(afterMetrics);
+        pipelineService.recordMetric(afterMetrics, pipeline.getPcode());
 
         checkMetrics(pipeline, beforeMetrics, afterMetrics, simulated);
     }

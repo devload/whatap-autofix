@@ -18,7 +18,10 @@ function renderSidebar(activePage) {
       </div>
     </div>
     <div class="p-3 border-b border-gray-700">
-      <div class="text-xs text-gray-500 truncate">${esc(projectName)}</div>
+      <a href="select.html" class="flex items-center gap-1 text-xs text-gray-500 hover:text-white truncate no-underline transition" title="프로젝트 변경">
+        <span class="truncate">${esc(projectName)}</span>
+        <svg class="w-3 h-3 flex-shrink-0 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l4-4 4 4m0 6l-4 4-4-4"/></svg>
+      </a>
     </div>
     <nav class="flex-1 py-3">`;
 

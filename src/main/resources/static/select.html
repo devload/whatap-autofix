@@ -48,7 +48,7 @@ function render() {
 
 function pick(idx) {
   selectedIdx = idx;
-  render();
+  startMonitoring();
 }
 
 async function startMonitoring() {
@@ -57,10 +57,16 @@ async function startMonitoring() {
   const btn = document.getElementById('btn-start');
   btn.disabled = true; btn.textContent = '연결 중...';
   try {
-    await fetch('/api/auth/whatap/select-project', {
+    const r = await fetch('/api/auth/whatap/select-project', {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({pcode: p.pcode, projectApiToken: p.apiToken, projectName: p.name, productType: p.productType || p.platform || 'java'})
+      body: JSON.stringify({pcode: p.pcode, projectApiToken: p.apiToken || '', projectName: p.name, productType: p.productType || p.platform || 'java'})
     });
+    const d = await r.json();
+    if (!r.ok || !d.success) {
+      alert('프로젝트 선택 실패: ' + (d.error || d.message || 'Unknown error'));
+      btn.disabled = false; btn.textContent = '모니터링 시작';
+      return;
+    }
     sessionStorage.setItem('af_project_name', p.name + ' (' + p.pcode + ')');
     location.href = 'monitor.html';
   } catch(e) {

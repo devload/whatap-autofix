@@ -134,7 +134,8 @@ const SKIP_KEYS = new Set(['key','pcode','okind','onode','oname','oid','type','t
 function updateMetrics(m, productType) {
   if (!m) return;
 
-  const isApm = !productType || productType === 'java' || productType === 'nodejs' || productType === 'python' || productType === 'dotnet' || productType === 'golang' || productType === 'php';
+  const pt = (productType || '').toLowerCase();
+  const isApm = !productType || pt === 'apm' || pt === 'java' || pt === 'nodejs' || pt === 'python' || pt === 'dotnet' || pt === 'golang' || pt === 'php';
 
   if (isApm) {
     // 기존 APM 카드 사용

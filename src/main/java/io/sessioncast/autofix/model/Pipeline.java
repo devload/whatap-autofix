@@ -9,6 +9,7 @@ import java.util.UUID;
 @Data
 public class Pipeline {
     private String id = UUID.randomUUID().toString().substring(0, 8);
+    private String pcode;
     private String issueType;
     private Severity severity;
     private PipelineStatus status = PipelineStatus.IN_PROGRESS;
