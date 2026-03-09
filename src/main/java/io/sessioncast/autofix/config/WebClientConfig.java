@@ -68,9 +68,13 @@ public class WebClientConfig {
      * Starter의 기본 빈을 오버라이드하여 LLM_CHAT capability를 요구하도록 설정.
      */
     @Bean
-    @ConditionalOnProperty(prefix = "sessioncast.relay", name = "token")
+    @ConditionalOnProperty(prefix = "sessioncast.relay", name = "token", matchIfMissing = false)
     public SessionCastClient sessionCastClient(SessionCastProperties props) {
         var relay = props.getRelay();
+        if (relay.getToken() == null || relay.getToken().isBlank()) {
+            log.info("SessionCast token is empty, skipping client creation");
+            return null;
+        }
         var agent = props.getAgent();
         var reconnect = props.getReconnect();
         var api = props.getApi();

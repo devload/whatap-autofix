@@ -37,7 +37,7 @@ sessioncast:
   agent:
     machine-id: ${SESSIONCAST_MACHINE_ID:autofix-agent}
     label: "AutoFix Agent"
-    auto-connect: true
+    auto-connect: false
   reconnect:
     enabled: true
     initial-delay: 2s

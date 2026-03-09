@@ -13,8 +13,7 @@ java {
 
 repositories {
     mavenCentral()
-    mavenLocal()
-    maven { url 'https://jitpack.io' }
+    maven { url = uri("https://jitpack.io") }
 }
 
 dependencies {
@@ -25,8 +24,8 @@ dependencies {
     implementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml'
     implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310'
 
-    // SessionCast Spring Boot Starter — 자동 SessionCastClient 설정 + LLM Chat API
-    implementation 'io.sessioncast:sessioncast-spring-boot-starter:1.0.0-SNAPSHOT'
+    // SessionCast Spring Boot Starter — JitPack에서 가져오기
+    implementation 'com.github.sessioncast.sessioncast-java:sessioncast-spring-boot-starter:1.1.0'
 
     compileOnly 'org.projectlombok:lombok'
     annotationProcessor 'org.projectlombok:lombok'
