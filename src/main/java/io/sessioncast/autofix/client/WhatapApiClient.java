@@ -65,7 +65,7 @@ public class WhatapApiClient {
     @SuppressWarnings("unchecked")
     private Mono<Metric> getMxqlMetrics(String productType) {
         long etime = System.currentTimeMillis();
-        long stime = etime - 60_000; // 최근 1분
+        long stime = etime - 10_000; // 최근 10초 (응답 크기 제한)
 
         String[] categories = getMxqlCategories(productType);
         Map<String, Object> combined = new java.util.concurrent.ConcurrentHashMap<>();
@@ -113,7 +113,7 @@ public class WhatapApiClient {
         if (productType == null) return new String[]{"app_counter"};
         String pt = productType.toLowerCase();
         if (isDbProject(productType)) {
-            return new String[]{"db_mysql_counter", "db_pool", "db_counter"};
+            return new String[]{"db_real_counter"};
         } else if (pt.contains("browser") || pt.contains("rum")) {
             return new String[]{"rum_page_load_each_page", "rum_error_each_page"};
         } else if (pt.contains("server") || pt.contains("infra")) {
@@ -148,20 +148,51 @@ public class WhatapApiClient {
                 .doOnError(e -> log.error("Failed to fetch active agents", e));
     }
 
+    @SuppressWarnings("unchecked")
     public Mono<Map> executeMxql(String mxql, long stime, long etime) {
         Map<String, Object> body = Map.of(
                 "stime", stime,
                 "etime", etime,
                 "mql", mxql,
-                "limit", 100
+                "limit", 10
         );
 
         return webClient().post()
                 .uri("/open/api/flush/mxql/text")
                 .bodyValue(body)
-                .retrieve()
-                .bodyToMono(Map.class)
-                .doOnError(e -> log.error("Failed to execute MXQL: {}", mxql, e));
+                .exchangeToMono(response -> {
+                    return response.bodyToMono(String.class)
+                            .defaultIfEmpty("")
+                            .map(raw -> {
+                                try {
+                                    raw = raw.trim();
+                                    if (raw.isEmpty()) {
+                                        log.debug("MXQL 빈 응답 (status: {})", response.statusCode().value());
+                                        return (Map) Map.of();
+                                    }
+                                    log.debug("MXQL 응답 ({}자): {}", raw.length(),
+                                            raw.length() > 200 ? raw.substring(0, 200) + "..." : raw);
+                                    com.fasterxml.jackson.databind.ObjectMapper om = new com.fasterxml.jackson.databind.ObjectMapper();
+                                    if (raw.startsWith("[")) {
+                                        List<Map<String, Object>> list = om.readValue(raw,
+                                                new com.fasterxml.jackson.core.type.TypeReference<List<Map<String, Object>>>() {});
+                                        if (list.isEmpty()) return (Map) Map.of();
+                                        Map<String, Object> result = new java.util.HashMap<>(list.get(0));
+                                        result.put("data", list);
+                                        return (Map) result;
+                                    } else {
+                                        return (Map) om.readValue(raw, Map.class);
+                                    }
+                                } catch (Exception e) {
+                                    log.warn("MXQL 응답 파싱 실패: {}", e.getMessage());
+                                    return (Map) Map.of();
+                                }
+                            });
+                })
+                .onErrorResume(e -> {
+                    log.error("Failed to execute/parse MXQL: {}", mxql, e);
+                    return Mono.just(Map.of());
+                });
     }
 
     public Mono<Map> getMetricTimeSeries(String metricType, long stime, long etime) {

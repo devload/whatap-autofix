@@ -92,7 +92,14 @@ public class AuthController {
         }
 
         // AutofixProperties 업데이트
-        props.getWhatap().setApiToken(request.getProjectApiToken());
+        String tokenToUse = request.getProjectApiToken();
+        log.info("프로젝트 선택 — pcode: {}, token: {}, productType: {}",
+                request.getPcode(),
+                tokenToUse != null && tokenToUse.length() > 8
+                        ? tokenToUse.substring(0, 4) + "***" + tokenToUse.substring(tokenToUse.length() - 4)
+                        : "(empty)",
+                request.getProductType());
+        props.getWhatap().setApiToken(tokenToUse);
         props.getWhatap().setPcode(String.valueOf(request.getPcode()));
         props.getWhatap().setProjectName(request.getProjectName());
         if (request.getProductType() != null && !request.getProductType().isBlank()) {

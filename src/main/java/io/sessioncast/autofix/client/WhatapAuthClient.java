@@ -8,6 +8,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.ClientResponse;
 import org.springframework.web.reactive.function.client.ExchangeStrategies;
 import org.springframework.web.reactive.function.client.WebClient;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.net.URI;
@@ -235,14 +236,31 @@ public class WhatapAuthClient {
     }
 
     /**
-     * 계정 API 토큰으로 프로젝트 목록 조회 (Open API)
+     * 프로젝트 목록 조회.
+     * 쿠키 기반 API를 우선 사용 (프로젝트별 apiToken 포함).
+     * 실패 시 Open API 폴백.
      */
     public Mono<List<ProjectInfo>> getProjects(String accountApiToken) {
+        if (!sessionCookies.isBlank()) {
+            return getProjectsViaCookies()
+                    .flatMap(list -> {
+                        if (list.isEmpty() && accountApiToken != null && !accountApiToken.isBlank()) {
+                            return getProjectsViaOpenApi(accountApiToken);
+                        }
+                        return Mono.just(list);
+                    })
+                    .onErrorResume(e -> {
+                        log.warn("쿠키 기반 프로젝트 목록 실패, Open API 폴백: {}", e.getMessage());
+                        if (accountApiToken != null && !accountApiToken.isBlank()) {
+                            return getProjectsViaOpenApi(accountApiToken);
+                        }
+                        return Mono.just(List.of());
+                    });
+        }
         if (accountApiToken != null && !accountApiToken.isBlank()) {
             return getProjectsViaOpenApi(accountApiToken);
         }
-        // 토큰 없으면 쿠키 기반으로 시도
-        return getProjectsViaCookies();
+        return Mono.just(List.of());
     }
 
     @SuppressWarnings("unchecked")

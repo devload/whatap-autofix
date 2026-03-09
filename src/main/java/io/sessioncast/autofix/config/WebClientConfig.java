@@ -45,6 +45,7 @@ public class WebClientConfig {
                 .baseUrl(props.getWhatap().getApiUrl())
                 .defaultHeader("x-whatap-token", token)
                 .defaultHeader("x-whatap-pcode", pcode)
+                .codecs(configurer -> configurer.defaultCodecs().maxInMemorySize(10 * 1024 * 1024))
                 .build();
     }
 

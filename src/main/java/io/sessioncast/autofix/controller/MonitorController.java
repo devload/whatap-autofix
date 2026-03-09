@@ -65,6 +65,19 @@ public class MonitorController {
         return ruleEngine.getRules();
     }
 
+    @GetMapping("/test-mxql")
+    public Map<String, Object> testMxql(@RequestParam String category) {
+        long etime = System.currentTimeMillis();
+        long stime = etime - 300_000; // 5분
+        String mxql = "CATEGORY " + category + "\nTAGLOAD\nSELECT";
+        try {
+            Map result = whatapClient.executeMxql(mxql, stime, etime).block(java.time.Duration.ofSeconds(10));
+            return Map.of("category", category, "result", result != null ? result : Map.of(), "status", "ok");
+        } catch (Exception e) {
+            return Map.of("category", category, "error", e.getMessage(), "status", "error");
+        }
+    }
+
     @GetMapping("/profile")
     public Map<String, Object> getMetricProfile() {
         MetricProfile profile = scoutAgent.getCurrentProfile();
