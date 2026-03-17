@@ -3,6 +3,7 @@ package io.sessioncast.autofix.controller;
 import io.sessioncast.autofix.agent.ScoutAgent;
 import io.sessioncast.autofix.config.AutofixProperties;
 import io.sessioncast.autofix.model.MetricProfile;
+import io.sessioncast.autofix.service.GlmService;
 import io.sessioncast.autofix.service.PipelineService;
 import io.sessioncast.core.SessionCastClient;
 import lombok.RequiredArgsConstructor;
@@ -24,6 +25,7 @@ public class SettingsController {
     private final AutofixProperties props;
     private final PipelineService pipelineService;
     private final ScoutAgent scoutAgent;
+    private final GlmService glmService;
 
     @Autowired(required = false)
     private SessionCastClient sessionCastClient;
@@ -31,7 +33,9 @@ public class SettingsController {
     // AI 모델 설정 (인메모리)
     private static final Map<String, String> aiConfig = new ConcurrentHashMap<>(Map.of(
             "provider", "claude-code",
-            "model", ""
+            "model", "",
+            "glmApiToken", "",
+            "glmBaseUrl", "https://open.bigmodel.cn/api/coding/paas/v4"
     ));
 
     @GetMapping("/thresholds")
@@ -81,8 +85,40 @@ public class SettingsController {
     public Map<String, String> updateAiSettings(@RequestBody Map<String, String> body) {
         if (body.containsKey("provider")) aiConfig.put("provider", body.get("provider"));
         if (body.containsKey("model")) aiConfig.put("model", body.get("model"));
+        if (body.containsKey("glmApiToken")) aiConfig.put("glmApiToken", body.get("glmApiToken"));
+        if (body.containsKey("glmBaseUrl")) aiConfig.put("glmBaseUrl", body.get("glmBaseUrl"));
         log.info("AI 설정 변경 — provider: {}, model: {}", aiConfig.get("provider"), aiConfig.get("model"));
-        return Map.copyOf(aiConfig);
+        return getAiSettingsSafe();
+    }
+
+    @PostMapping("/ai/glm/test")
+    public ResponseEntity<?> testGlmConnection(@RequestBody Map<String, String> body) {
+        String token = body.get("glmApiToken");
+        String baseUrl = body.get("glmBaseUrl");
+        
+        if (token == null || token.isBlank()) {
+            token = aiConfig.get("glmApiToken");
+        }
+        if (baseUrl == null || baseUrl.isBlank()) {
+            baseUrl = aiConfig.get("glmBaseUrl");
+        }
+        
+        if (token == null || token.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "error", "GLM API 토큰이 필요합니다"));
+        }
+        
+        boolean success = glmService.testConnection(baseUrl, token);
+        
+        if (success) {
+            aiConfig.put("glmApiToken", token);
+            if (baseUrl != null && !baseUrl.isBlank()) {
+                aiConfig.put("glmBaseUrl", baseUrl);
+            }
+            log.info("GLM 연결 테스트 성공");
+            return ResponseEntity.ok(Map.of("success", true));
+        } else {
+            return ResponseEntity.ok(Map.of("success", false, "error", "GLM API 연결 실패"));
+        }
     }
 
     public static String getAiProvider() {
@@ -91,6 +127,23 @@ public class SettingsController {
 
     public static String getAiModel() {
         return aiConfig.getOrDefault("model", "");
+    }
+    
+    public static String getGlmApiToken() {
+        return aiConfig.getOrDefault("glmApiToken", "");
+    }
+    
+    public static String getGlmBaseUrl() {
+        return aiConfig.getOrDefault("glmBaseUrl", "https://open.bigmodel.cn/api/coding/paas/v4");
+    }
+    
+    private Map<String, String> getAiSettingsSafe() {
+        return Map.of(
+            "provider", aiConfig.get("provider"),
+            "model", aiConfig.get("model"),
+            "glmBaseUrl", aiConfig.get("glmBaseUrl"),
+            "hasGlmToken", aiConfig.get("glmApiToken") != null && !aiConfig.get("glmApiToken").isBlank() ? "true" : "false"
+        );
     }
 
     // ─── Profile Thresholds ───

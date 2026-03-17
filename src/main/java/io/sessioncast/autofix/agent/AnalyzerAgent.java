@@ -5,6 +5,7 @@ import io.sessioncast.autofix.model.AnalysisResult;
 import io.sessioncast.autofix.model.Metric;
 import io.sessioncast.autofix.model.Pipeline;
 import io.sessioncast.autofix.controller.SettingsController;
+import io.sessioncast.autofix.service.GlmService;
 import io.sessioncast.autofix.service.PipelineService;
 import io.sessioncast.core.SessionCastClient;
 import io.sessioncast.core.api.LlmChatRequest;
@@ -25,14 +26,17 @@ public class AnalyzerAgent {
     private final PipelineService pipelineService;
     private final FixerAgent fixerAgent;
     private final SessionCastClient sessionCastClient;
+    private final GlmService glmService;
 
     public AnalyzerAgent(WhatapApiClient whatapClient,
                          PipelineService pipelineService,
                          FixerAgent fixerAgent,
+                         GlmService glmService,
                          @Autowired(required = false) SessionCastClient sessionCastClient) {
         this.whatapClient = whatapClient;
         this.pipelineService = pipelineService;
         this.fixerAgent = fixerAgent;
+        this.glmService = glmService;
         this.sessionCastClient = sessionCastClient;
     }
 
@@ -113,8 +117,24 @@ public class AnalyzerAgent {
         LlmChatRequest request = requestBuilder.build();
 
         try {
-            LlmChatResponse response = sessionCastClient.llmChat(request)
-                    .get(5, java.util.concurrent.TimeUnit.MINUTES);
+            LlmChatResponse response;
+            
+            if ("glm".equals(aiProvider)) {
+                // GLM 직접 호출
+                String glmToken = SettingsController.getGlmApiToken();
+                String glmUrl = SettingsController.getGlmBaseUrl();
+                if (glmToken == null || glmToken.isBlank()) {
+                    throw new IllegalStateException("GLM API 토큰이 설정되지 않았습니다");
+                }
+                response = glmService.chat(glmUrl, glmToken, request).get(5, java.util.concurrent.TimeUnit.MINUTES);
+            } else {
+                // SessionCast Relay 호출
+                if (sessionCastClient == null) {
+                    throw new IllegalStateException("SessionCast가 연결되지 않았습니다");
+                }
+                response = sessionCastClient.llmChat(request)
+                        .get(5, java.util.concurrent.TimeUnit.MINUTES);
+            }
 
             if (response.hasError()) {
                 log.warn("LLM response error: {}", response.error().message());

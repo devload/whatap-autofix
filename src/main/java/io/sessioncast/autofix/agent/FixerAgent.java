@@ -10,6 +10,7 @@ import io.sessioncast.autofix.model.Metric;
 import io.sessioncast.autofix.model.Pipeline;
 import io.sessioncast.autofix.rule.Rule;
 import io.sessioncast.autofix.rule.RuleEngine;
+import io.sessioncast.autofix.service.GlmService;
 import io.sessioncast.autofix.service.PipelineService;
 import io.sessioncast.core.SessionCastClient;
 import io.sessioncast.core.api.LlmChatRequest;
@@ -31,18 +32,21 @@ public class FixerAgent {
     private final AutofixProperties props;
     private final DeployerAgent deployerAgent;
     private final SessionCastClient sessionCastClient;
+    private final GlmService glmService;
 
     public FixerAgent(GithubApiClient githubClient,
                       RuleEngine ruleEngine,
                       PipelineService pipelineService,
                       AutofixProperties props,
                       DeployerAgent deployerAgent,
+                      GlmService glmService,
                       @Autowired(required = false) SessionCastClient sessionCastClient) {
         this.githubClient = githubClient;
         this.ruleEngine = ruleEngine;
         this.pipelineService = pipelineService;
         this.props = props;
         this.deployerAgent = deployerAgent;
+        this.glmService = glmService;
         this.sessionCastClient = sessionCastClient;
     }
 
@@ -188,8 +192,21 @@ public class FixerAgent {
         }
         LlmChatRequest request = requestBuilder.build();
 
-        LlmChatResponse response = sessionCastClient.llmChat(request)
-                .get(5, java.util.concurrent.TimeUnit.MINUTES);
+        LlmChatResponse response;
+        if ("glm".equals(aiProvider)) {
+            String glmToken = SettingsController.getGlmApiToken();
+            String glmUrl = SettingsController.getGlmBaseUrl();
+            if (glmToken == null || glmToken.isBlank()) {
+                throw new RuntimeException("GLM API 토큰이 설정되지 않았습니다");
+            }
+            response = glmService.chat(glmUrl, glmToken, request).get(5, java.util.concurrent.TimeUnit.MINUTES);
+        } else {
+            if (sessionCastClient == null) {
+                throw new RuntimeException("SessionCast가 연결되지 않았습니다");
+            }
+            response = sessionCastClient.llmChat(request)
+                    .get(5, java.util.concurrent.TimeUnit.MINUTES);
+        }
 
         if (response.hasError()) {
             log.warn("Fixer: LLM response error: {}", response.error().message());

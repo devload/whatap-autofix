@@ -58,6 +58,7 @@
             <option value="claude-code">Claude Code (Anthropic)</option>
             <option value="codex-cli">Codex CLI (OpenAI)</option>
             <option value="gemini-cli">Gemini CLI (Google)</option>
+            <option value="glm">GLM (Zhipu AI)</option>
             <option value="cursor-cli">Cursor CLI</option>
             <option value="ollama">Ollama (Local)</option>
           </select>
@@ -67,6 +68,26 @@
           <label class="text-xs text-gray-500 font-medium">모델 <span class="text-gray-400">(선택)</span></label>
           <input id="ai-model" type="text" placeholder="auto (기본 모델)" class="w-full border rounded-lg px-3 py-2 text-sm mt-1">
           <p class="text-xs text-gray-400 mt-1">비워두면 제공자 기본 모델을 사용합니다</p>
+        </div>
+      </div>
+      <!-- GLM Settings -->
+      <div id="glm-settings" class="hidden mt-4 p-4 bg-gray-50 rounded-lg border">
+        <div class="grid grid-cols-3 gap-4">
+          <div class="col-span-2">
+            <label class="text-xs text-gray-500 font-medium">GLM API Token</label>
+            <div class="flex gap-2 mt-1">
+              <input id="glm-token" type="password" placeholder="API Key" class="flex-1 border rounded-lg px-3 py-2 text-sm">
+              <button onclick="document.getElementById('glm-token').type=document.getElementById('glm-token').type==='password'?'text':'password'" class="px-3 py-2 border rounded-lg text-xs">보기</button>
+            </div>
+          </div>
+          <div>
+            <label class="text-xs text-gray-500 font-medium">API URL</label>
+            <input id="glm-url" type="text" value="https://open.bigmodel.cn/api/coding/paas/v4" class="w-full border rounded-lg px-3 py-2 text-sm mt-1">
+          </div>
+        </div>
+        <div class="mt-3 flex items-center gap-3">
+          <button onclick="testGlm()" class="bg-green-500 hover:bg-green-600 text-white px-4 py-1.5 rounded-lg text-xs font-medium transition">연결 테스트</button>
+          <span id="glm-test-result" class="text-xs"></span>
         </div>
       </div>
       <div class="mt-4 flex items-center justify-between">
@@ -136,6 +157,7 @@ const providerDescs = {
   'claude-code': 'SessionCast Relay를 통해 로컬 Claude Code에 분석 요청',
   'codex-cli': 'SessionCast Relay를 통해 로컬 Codex CLI에 분석 요청',
   'gemini-cli': 'SessionCast Relay를 통해 로컬 Gemini CLI에 분석 요청',
+  'glm': 'GLM API 직접 호출 (SessionCast Relay 불필요)',
   'cursor-cli': 'SessionCast Relay를 통해 로컬 Cursor CLI에 분석 요청',
   'ollama': 'SessionCast Relay를 통해 로컬 Ollama에 분석 요청'
 };
@@ -143,15 +165,55 @@ const providerDescs = {
 function onProviderChange() {
   const v = document.getElementById('ai-provider').value;
   document.getElementById('ai-provider-desc').textContent = providerDescs[v] || '';
+  document.getElementById('glm-settings').classList.toggle('hidden', v !== 'glm');
 }
 
 async function saveAi() {
   const provider = document.getElementById('ai-provider').value;
   const model = document.getElementById('ai-model').value;
+  const body = { provider, model };
+  if (provider === 'glm') {
+    body.glmApiToken = document.getElementById('glm-token').value;
+    body.glmBaseUrl = document.getElementById('glm-url').value;
+  }
   try {
-    await fetch('/api/settings/ai', { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({provider, model}) });
+    await fetch('/api/settings/ai', { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
     showToast('AI 설정 저장: ' + provider);
   } catch(e) { showToast('AI 설정 저장 실패'); }
+}
+
+async function testGlm() {
+  const token = document.getElementById('glm-token').value;
+  const url = document.getElementById('glm-url').value;
+  const result = document.getElementById('glm-test-result');
+  
+  if (!token) {
+    result.textContent = '토큰을 입력하세요';
+    result.className = 'text-xs text-red-600';
+    return;
+  }
+  
+  result.textContent = '테스트 중...';
+  result.className = 'text-xs text-gray-600';
+  
+  try {
+    const r = await fetch('/api/settings/ai/glm/test', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ glmApiToken: token, glmBaseUrl: url })
+    });
+    const d = await r.json();
+    if (d.success) {
+      result.textContent = '✓ 연결 성공';
+      result.className = 'text-xs text-green-600';
+    } else {
+      result.textContent = '✗ ' + (d.error || '실패');
+      result.className = 'text-xs text-red-600';
+    }
+  } catch(e) {
+    result.textContent = '✗ 연결 실패';
+    result.className = 'text-xs text-red-600';
+  }
 }
 
 async function resetData() {
@@ -260,6 +322,8 @@ function esc(s) { if (!s) return ''; const d = document.createElement('div'); d.
     const d = await r.json();
     if (d.provider) document.getElementById('ai-provider').value = d.provider;
     if (d.model) document.getElementById('ai-model').value = d.model;
+    if (d.glmBaseUrl) document.getElementById('glm-url').value = d.glmBaseUrl;
+    if (d.hasGlmToken === 'true') document.getElementById('glm-token').value = '(저장됨)';
     onProviderChange();
   } catch(e) {}
 
