@@ -6,6 +6,7 @@ import io.sessioncast.autofix.model.Metric;
 import io.sessioncast.autofix.model.Pipeline;
 import io.sessioncast.autofix.model.VerificationResult;
 import io.sessioncast.autofix.service.PipelineService;
+import io.sessioncast.autofix.service.WebhookService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -19,6 +20,7 @@ public class VerifierAgent {
 
     private final WhatapApiClient whatapClient;
     private final PipelineService pipelineService;
+    private final WebhookService webhookService;
 
     public void verify(Pipeline pipeline) {
         log.info("Verifier Agent: verifying fix for {} (pipeline {})", pipeline.getIssueType(), pipeline.getId());
@@ -118,8 +120,10 @@ public class VerifierAgent {
 
         if (passed) {
             log.info("Verifier Agent: PASS — {} for pipeline {}", summary, pipeline.getId());
+            webhookService.notifyCompleted(pipeline);
         } else {
             log.warn("Verifier Agent: FAIL — {} for pipeline {}", summary, pipeline.getId());
+            webhookService.notifyFailure(pipeline);
         }
     }
 

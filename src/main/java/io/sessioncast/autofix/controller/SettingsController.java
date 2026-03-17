@@ -3,8 +3,11 @@ package io.sessioncast.autofix.controller;
 import io.sessioncast.autofix.agent.ScoutAgent;
 import io.sessioncast.autofix.config.AutofixProperties;
 import io.sessioncast.autofix.model.MetricProfile;
+import io.sessioncast.autofix.service.ClaudeLocalService;
+import io.sessioncast.autofix.service.FeedbackService;
 import io.sessioncast.autofix.service.GlmService;
 import io.sessioncast.autofix.service.PipelineService;
+import io.sessioncast.autofix.service.WebhookService;
 import io.sessioncast.core.SessionCastClient;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -26,17 +29,35 @@ public class SettingsController {
     private final PipelineService pipelineService;
     private final ScoutAgent scoutAgent;
     private final GlmService glmService;
+    private final ClaudeLocalService claudeLocalService;
+    private final FeedbackService feedbackService;
+    private final WebhookService webhookService;
 
     @Autowired(required = false)
     private SessionCastClient sessionCastClient;
 
     // AI 모델 설정 (인메모리)
     private static final Map<String, String> aiConfig = new ConcurrentHashMap<>(Map.of(
-            "provider", "claude-code",
+            "provider", "glm",
             "model", "",
             "glmApiToken", "",
             "glmBaseUrl", "https://open.bigmodel.cn/api/coding/paas/v4"
     ));
+
+    /**
+     * 로컬 .env에서 읽은 기본 로그인 정보 (개발 편의용, 커밋 금지)
+     */
+    @GetMapping("/defaults")
+    public Map<String, String> getDefaults() {
+        String email = System.getenv("WHATAP_DEFAULT_EMAIL");
+        String password = System.getenv("WHATAP_DEFAULT_PASSWORD");
+        String glmToken = System.getenv("GLM_API_TOKEN");
+        return Map.of(
+                "email", email != null ? email : "",
+                "password", password != null ? password : "",
+                "glmToken", glmToken != null ? glmToken : ""
+        );
+    }
 
     @GetMapping("/thresholds")
     public AutofixProperties.ThresholdProps getThresholds() {
@@ -70,6 +91,10 @@ public class SettingsController {
                 "sessioncast", Map.of(
                         "configured", sessionCastClient != null,
                         "connected", sessionCastClient != null && sessionCastClient.isConnected()
+                ),
+                "claudeLocal", Map.of(
+                        "available", claudeLocalService.isAvailable(),
+                        "sessioncast", claudeLocalService.isSessionCastAvailable()
                 )
         );
     }
@@ -122,7 +147,7 @@ public class SettingsController {
     }
 
     public static String getAiProvider() {
-        return aiConfig.getOrDefault("provider", "claude-code");
+        return aiConfig.getOrDefault("provider", "glm");
     }
 
     public static String getAiModel() {
@@ -204,5 +229,41 @@ public class SettingsController {
 
     private String nullSafe(String value) {
         return value != null ? value : "";
+    }
+
+    // ─── Webhook Settings ───
+
+    @GetMapping("/webhook")
+    public Map<String, Object> getWebhookSettings() {
+        return Map.of(
+                "url", WebhookService.getWebhookUrl(),
+                "enabled", WebhookService.isEnabled()
+        );
+    }
+
+    @PutMapping("/webhook")
+    public Map<String, Object> updateWebhookSettings(@RequestBody Map<String, String> body) {
+        if (body.containsKey("url")) WebhookService.setWebhookUrl(body.get("url"));
+        if (body.containsKey("enabled")) WebhookService.setEnabled("true".equals(body.get("enabled")));
+        log.info("Webhook 설정 변경 — url: {}, enabled: {}", WebhookService.getWebhookUrl(), WebhookService.isEnabled());
+        return Map.of("url", WebhookService.getWebhookUrl(), "enabled", WebhookService.isEnabled());
+    }
+
+    @GetMapping("/webhook/history")
+    public List<Map<String, Object>> getAlertHistory() {
+        return webhookService.getAlertHistory();
+    }
+
+    // ─── Feedback ───
+
+    @PostMapping("/feedback")
+    public ResponseEntity<?> submitFeedback(@RequestBody FeedbackService.Feedback feedback) {
+        feedbackService.addFeedback(feedback);
+        return ResponseEntity.ok(Map.of("success", true, "message", "피드백이 반영되었습니다."));
+    }
+
+    @GetMapping("/feedback")
+    public List<FeedbackService.Feedback> getFeedbacks() {
+        return feedbackService.getAllFeedbacks();
     }
 }

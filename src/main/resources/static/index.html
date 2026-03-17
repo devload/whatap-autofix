@@ -24,16 +24,17 @@
         <span id="ai-dot" class="ml-auto w-2.5 h-2.5 rounded-full bg-gray-300"></span>
       </div>
       <select id="ai-provider" onchange="switchAiProvider()" class="w-full border rounded-lg px-3 py-2 text-xs focus:ring-2 focus:ring-purple-500 outline-none mb-3">
-        <option value="sessioncast">SessionCast Relay</option>
+        <option value="claude-local">Claude Code (Local)</option>
         <option value="glm">GLM (Zhipu AI)</option>
+        <option value="sessioncast">SessionCast Relay</option>
       </select>
       <!-- SessionCast Panel -->
-      <div id="ai-panel-sessioncast">
+      <div id="ai-panel-sessioncast" class="hidden">
         <input type="text" id="inp-sc-token" placeholder="srt_live_xxx or srt_test_xxx" class="w-full border rounded-lg px-3 py-2 text-xs focus:ring-2 focus:ring-purple-500 outline-none mb-2">
         <button onclick="connectSC()" class="w-full border border-purple-400 text-purple-600 hover:bg-purple-50 py-2 rounded-lg text-xs font-medium transition">토큰으로 연결</button>
       </div>
       <!-- GLM Panel -->
-      <div id="ai-panel-glm" class="hidden space-y-2">
+      <div id="ai-panel-glm" class="space-y-2">
         <input type="text" id="inp-glm-token" placeholder="GLM API Token" class="w-full border rounded-lg px-3 py-2 text-xs focus:ring-2 focus:ring-purple-500 outline-none">
         <input type="text" id="inp-glm-url" placeholder="https://open.bigmodel.cn/api/coding/paas/v4" class="w-full border rounded-lg px-3 py-2 text-xs focus:ring-2 focus:ring-purple-500 outline-none">
         <button onclick="connectGlm()" class="w-full border border-purple-400 text-purple-600 hover:bg-purple-50 py-2 rounded-lg text-xs font-medium transition">토큰으로 연결</button>
@@ -238,6 +239,14 @@ async function doLogin() {
     const r = await fetch('/api/auth/whatap/status');
     const d = await r.json();
     if (d.connected) location.href = 'monitor.html';
+  } catch(e) {}
+  // 로컬 기본값 채우기 (.env에서 로드, 커밋 안 됨)
+  try {
+    const r = await fetch('/api/settings/defaults');
+    const d = await r.json();
+    if (d.email && !document.getElementById('inp-email').value) document.getElementById('inp-email').value = d.email;
+    if (d.password && !document.getElementById('inp-pw').value) document.getElementById('inp-pw').value = d.password;
+    if (d.glmToken && !document.getElementById('inp-glm-token').value) document.getElementById('inp-glm-token').value = d.glmToken;
   } catch(e) {}
 })();
 </script>

@@ -50,7 +50,7 @@ public class GlmService {
                     .body(Mono.just(requestBody), Map.class)
                     .retrieve()
                     .bodyToMono(Map.class)
-                    .timeout(Duration.ofSeconds(120))
+                    .timeout(Duration.ofSeconds(300))
                     .block();
                 
                 return parseResponse(response);

@@ -71,7 +71,8 @@ function stageClass(p, idx) {
 function renderStageBar(p) {
   const stages = ['SCOUT','ANALYZER','FIXER','DEPLOYER','VERIFIER'];
   const labels = ['Scout','Analyzer','Fixer','Deployer','Verifier'];
-  const tools = ['WhaTap CLI','SessionCast','GitHub','Git/CI/CD','WhaTap CLI'];
+  const _ai = window._aiProvider === 'claude-local' ? 'Claude Code (Local)' : window._aiProvider === 'glm' ? 'GLM (Zhipu AI)' : window._aiProvider === 'ollama' ? 'Ollama' : window._aiProvider || 'AI';
+  const tools = ['WhaTap CLI', _ai, _ai, _ai, 'WhaTap CLI'];
   const abbr = ['S','A','F','D','V'];
   const cur = stages.indexOf(p.currentStage);
 
@@ -84,9 +85,9 @@ function renderStageBar(p) {
     }
     const tipTexts = [
       '이슈 감지 — WhaTap CLI를 통해 임계값 위반 감지',
-      '근본 원인 분석 — SessionCast를 통해 원인, 신뢰도, 상관 이슈 식별',
-      '수정 생성 — GitHub API와 AI 분석을 통해 코드 diff/스크립트 생성',
-      '실행/배포 — Git 커밋, PR, CI/CD를 통해 수정 배포',
+      '근본 원인 분석 — ' + _ai + '를 통해 원인, 신뢰도, 상관 이슈 식별',
+      '수정 생성 — ' + _ai + '를 통해 권장 조치 및 코드 수정안 생성',
+      '실행/배포 — 시뮬레이션 또는 Git/CI/CD를 통해 수정 배포',
       '결과 검증 — 배포 후 WhaTap CLI를 통해 메트릭 정상화 확인'
     ];
     return `<div class="stage-node tip-down" data-tip="${tipTexts[i]}"><div class="stage-circle ${cls}">${abbr[i]}</div><div class="stage-name">${labels[i]}</div><div class="stage-tool">${tools[i]}</div></div>${lineHtml}`;
@@ -103,7 +104,8 @@ function timelineEntry(p, stage, idx) {
   const cls = stageClass(p, idx);
   const agentNames = {SCOUT:'Scout Agent',ANALYZER:'Analyzer Agent',FIXER:'Fixer Agent',DEPLOYER:'Deployer Agent',VERIFIER:'Verifier Agent'};
   const agentCls = {SCOUT:'agent-scout',ANALYZER:'agent-analyzer',FIXER:'agent-fixer',DEPLOYER:'agent-deployer',VERIFIER:'agent-verifier'};
-  const toolNames = {SCOUT:'WhaTap CLI',ANALYZER:'SessionCast',FIXER:'GitHub',DEPLOYER:'SessionCast REC',VERIFIER:'WhaTap CLI'};
+  const aiLabel = window._aiProvider === 'claude-local' ? 'Claude Code (Local)' : window._aiProvider === 'glm' ? 'GLM (Zhipu AI)' : window._aiProvider === 'ollama' ? 'Ollama' : window._aiProvider || 'AI';
+  const toolNames = {SCOUT:'WhaTap CLI',ANALYZER:aiLabel,FIXER:aiLabel,DEPLOYER:aiLabel,VERIFIER:'WhaTap CLI'};
 
   let statusText = '';
   if (cls === 'active') statusText = '<span class="text-xs text-blue-500 font-medium ml-2 pulse">분석 중...</span>';
@@ -159,27 +161,65 @@ function renderAnalyzer(p) {
   const rootText = conf > 80 ? 'text-green-800' : 'text-orange-700';
 
   let h = `<div class="stage-summary mb-2">근본 원인: ${esc(p.analysis.rootCause)}. 신뢰도: <b>${conf}%</b></div>`;
-  h += `<div class="stage-content"><div class="grid grid-cols-3 gap-4">`;
+  h += `<div class="stage-content"><div class="space-y-4">`;
 
-  // Trend chart
-  h += `<div class="bg-gray-50 rounded-lg p-4"><div class="text-xs font-semibold mb-2">추이 (10분)</div>`;
-  h += `<div class="flex items-end gap-1 h-20">`;
-  const bars = [30,35,45,60,78,95];
-  const barColors = ['bg-blue-200','bg-blue-200','bg-blue-300','bg-yellow-400','bg-orange-400','bg-red-500'];
-  bars.forEach((b,i) => { h += `<div class="flex-1 ${barColors[i]} rounded-t" style="height:${b}%"></div>`; });
-  h += `</div></div>`;
+  // 1. 분석 과정 (Reasoning)
+  const rawReasoning = (p.analysis.details || {}).reasoning;
+  const steps = Array.isArray(rawReasoning) ? rawReasoning : (rawReasoning ? [rawReasoning] : []);
+  if (steps.length > 0) {
+    h += `<div class="bg-slate-50 border border-slate-200 rounded-lg p-4">`;
+    h += `<div class="text-xs font-semibold text-slate-600 mb-3">📋 분석 과정</div>`;
+    h += `<div class="relative pl-6 text-xs text-slate-700 leading-relaxed">`;
+    h += `<div class="absolute left-[9px] top-1 bottom-1 w-0.5 bg-slate-300"></div>`;
+    steps.forEach((text, i) => {
+      const isLast = i === steps.length - 1;
+      const dotColor = isLast ? 'bg-red-400' : 'bg-slate-400';
+      h += `<div class="relative ${i > 0 ? 'mt-3' : ''}">`;
+      h += `<div class="absolute -left-6 top-0.5 w-[18px] h-[18px] rounded-full ${dotColor} flex items-center justify-center text-white text-[9px] font-bold">${i+1}</div>`;
+      h += `<div>${esc(text)}</div>`;
+      h += `</div>`;
+    });
+    h += `</div></div>`;
+  }
 
-  // Correlation
-  h += `<div class="bg-gray-50 rounded-lg p-4"><div class="text-xs font-semibold mb-2">상관관계</div><div class="text-xs space-y-1.5">`;
+  // 2. 상관 메트릭 (인과관계 플로우) + 근본 원인 (2열 그리드)
+  h += `<div class="grid grid-cols-2 gap-4">`;
+
+  // Correlation — 인과관계 플로우 시각화
+  h += `<div class="bg-gray-50 rounded-lg p-4"><div class="text-xs font-semibold mb-3">상관 메트릭</div>`;
   const corr = p.analysis.correlatedMetrics || [];
   if (corr.length > 0) {
-    corr.forEach(m => {
-      h += `<div class="flex justify-between"><span>${esc(m)}</span><span class="text-orange-500 font-semibold">CORR</span></div>`;
+    h += `<div class="space-y-2">`;
+    corr.forEach((m, i) => {
+      // Check if it's a chain like "user:1010 → tps:215"
+      if (m.includes('→')) {
+        const nodes = m.split('→').map(s => s.trim());
+        h += `<div class="flex items-center flex-wrap gap-1">`;
+        nodes.forEach((node, j) => {
+          const [name, val] = node.includes(':') ? node.split(':') : [node, ''];
+          h += `<span class="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-white border border-gray-200 text-[10px]">`;
+          h += `<span class="text-gray-500">${esc(name.trim())}</span>`;
+          if (val) h += `<span class="font-mono font-bold text-gray-900">${esc(val.trim())}</span>`;
+          h += `</span>`;
+          if (j < nodes.length - 1) h += `<span class="text-gray-400 text-[10px]">→</span>`;
+        });
+        h += `</div>`;
+      } else {
+        // Simple "metric:value"
+        const [name, val] = m.includes(':') ? m.split(':') : [m, ''];
+        h += `<div class="flex items-center gap-1">`;
+        h += `<span class="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-white border border-gray-200 text-[10px]">`;
+        h += `<span class="text-gray-500">${esc(name.trim())}</span>`;
+        if (val) h += `<span class="font-mono font-bold text-gray-900">${esc(val.trim())}</span>`;
+        h += `</span>`;
+        h += `</div>`;
+      }
     });
+    h += `</div>`;
   } else {
-    h += `<div class="text-gray-400">직접 상관된 메트릭 없음</div>`;
+    h += `<div class="text-xs text-gray-400">직접 상관된 메트릭 없음</div>`;
   }
-  h += `</div></div>`;
+  h += `</div>`;
 
   // Root Cause
   h += `<div class="${rootBg} border rounded-lg p-4"><div class="text-xs font-semibold mb-2">근본 원인</div>`;
@@ -340,6 +380,21 @@ function renderDeployer(p, cls) {
   }
   h += `</div>`;
 
+  // Render AI recommendation (HTML) from Fixer if available in simulation mode
+  if (p.deploy.simulated && p.fix && p.fix.recommendation) {
+    const raw = p.fix.recommendation;
+    const isHtml = raw.includes('<') && (raw.includes('</div>') || raw.includes('</details>') || raw.includes('</table>') || raw.includes('</p>'));
+    if (isHtml) {
+      const rendered = DOMPurify.sanitize(raw, {
+        ADD_TAGS: ['details', 'summary', 'pre', 'code', 'svg', 'path'],
+        ADD_ATTR: ['class', 'open', 'style', 'fill', 'stroke', 'viewBox', 'stroke-linecap', 'stroke-linejoin', 'stroke-width', 'd'],
+        ALLOW_DATA_ATTR: false
+      });
+      h += `<div class="mt-4"><div class="text-xs font-semibold text-gray-500 mb-2">AI 권장 조치</div>`;
+      h += `<div class="ai-rendered">${rendered}</div></div>`;
+    }
+  }
+
   // Failed state: action buttons
   if (cls === 'failed') {
     h += `<div class="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700 mt-3">Deployer Agent 실패.</div>`;
@@ -453,7 +508,15 @@ async function poll() {
   } catch(e) { console.error('poll error', e); }
 }
 
-requireConnection().then(ok => { if (ok) { poll(); setInterval(poll, 3000); } });
+requireConnection().then(async ok => {
+  if (!ok) return;
+  try {
+    const ai = await fetch('/api/settings/ai').then(r => r.json());
+    window._aiProvider = ai.provider || '';
+  } catch(e) {}
+  poll();
+  setInterval(poll, 3000);
+});
 </script>
 </body>
 </html>

@@ -55,14 +55,15 @@
         <div>
           <label class="text-xs text-gray-500 font-medium">AI 제공자</label>
           <select id="ai-provider" class="w-full border rounded-lg px-3 py-2 text-sm mt-1" onchange="onProviderChange()">
-            <option value="claude-code">Claude Code (Anthropic)</option>
+            <option value="claude-local">Claude Code (Local)</option>
+            <option value="glm">GLM (Zhipu AI)</option>
+            <option value="claude-code">Claude Code (Relay)</option>
             <option value="codex-cli">Codex CLI (OpenAI)</option>
             <option value="gemini-cli">Gemini CLI (Google)</option>
-            <option value="glm">GLM (Zhipu AI)</option>
             <option value="cursor-cli">Cursor CLI</option>
             <option value="ollama">Ollama (Local)</option>
           </select>
-          <p class="text-xs text-gray-400 mt-1" id="ai-provider-desc">SessionCast Relay를 통해 로컬 Claude Code에 분석 요청</p>
+          <p class="text-xs text-gray-400 mt-1" id="ai-provider-desc">GLM (Zhipu AI) 직접 API 호출</p>
         </div>
         <div>
           <label class="text-xs text-gray-500 font-medium">모델 <span class="text-gray-400">(선택)</span></label>

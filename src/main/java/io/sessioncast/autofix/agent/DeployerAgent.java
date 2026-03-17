@@ -61,8 +61,6 @@ public class DeployerAgent {
                 ? fix.getRecommendation() : "수동 조치 필요";
 
         execLog.append("[상태] GitHub 연동 없음 — 시뮬레이션 모드로 진행\n\n");
-        execLog.append("[권장 조치]\n");
-        execLog.append(recommendation).append("\n\n");
 
         execLog.append("[시뮬레이션 배포 로그]\n");
         execLog.append("$ kubectl get pods -n production\n");

@@ -5,6 +5,8 @@ import io.sessioncast.autofix.model.AnalysisResult;
 import io.sessioncast.autofix.model.Metric;
 import io.sessioncast.autofix.model.Pipeline;
 import io.sessioncast.autofix.controller.SettingsController;
+import io.sessioncast.autofix.service.ClaudeLocalService;
+import io.sessioncast.autofix.service.FeedbackService;
 import io.sessioncast.autofix.service.GlmService;
 import io.sessioncast.autofix.service.PipelineService;
 import io.sessioncast.core.SessionCastClient;
@@ -27,16 +29,22 @@ public class AnalyzerAgent {
     private final FixerAgent fixerAgent;
     private final SessionCastClient sessionCastClient;
     private final GlmService glmService;
+    private final FeedbackService feedbackService;
+    private final ClaudeLocalService claudeLocalService;
 
     public AnalyzerAgent(WhatapApiClient whatapClient,
                          PipelineService pipelineService,
                          FixerAgent fixerAgent,
                          GlmService glmService,
+                         FeedbackService feedbackService,
+                         ClaudeLocalService claudeLocalService,
                          @Autowired(required = false) SessionCastClient sessionCastClient) {
         this.whatapClient = whatapClient;
         this.pipelineService = pipelineService;
         this.fixerAgent = fixerAgent;
         this.glmService = glmService;
+        this.feedbackService = feedbackService;
+        this.claudeLocalService = claudeLocalService;
         this.sessionCastClient = sessionCastClient;
     }
 
@@ -44,24 +52,22 @@ public class AnalyzerAgent {
         log.info("Analyzer Agent: analyzing {} (pipeline {})", pipeline.getIssueType(), pipeline.getId());
         pipeline.addLog(Pipeline.Stage.ANALYZER, "분석 시작: " + pipeline.getIssueType());
 
-        // Fetch correlated metrics
+        // 1) 메트릭 히스토리 수집 (최근 10건 = 약 5분)
+        String timeSeriesData = buildTimeSeriesContext();
+
+        // 2) 트랜잭션 TOP 조회 (MXQL)
+        String txTopData = fetchTransactionTop();
+
         Map<String, Object> correlationData = Map.of();
-        try {
-            long now = Instant.now().toEpochMilli();
-            long tenMinAgo = now - 600_000;
-            Map result = whatapClient.getMetricTimeSeries("cpu", tenMinAgo, now)
-                    .timeout(Duration.ofSeconds(10))
-                    .block();
-            if (result != null) {
-                correlationData = result;
-            }
-        } catch (Exception e) {
-            log.warn("Analyzer: failed to fetch correlation data: {}", e.getMessage());
-        }
 
         try {
-            if (sessionCastClient != null) {
-                performLlmAnalysis(pipeline, correlationData);
+            String aiProvider = SettingsController.getAiProvider();
+            boolean hasGlm = "glm".equals(aiProvider) && !SettingsController.getGlmApiToken().isBlank();
+            boolean hasLocal = "claude-local".equals(aiProvider) && claudeLocalService.isAvailable();
+            boolean hasSc = sessionCastClient != null && sessionCastClient.isConnected();
+
+            if (hasGlm || hasLocal || hasSc) {
+                performLlmAnalysis(pipeline, correlationData, timeSeriesData, txTopData);
             } else {
                 performFallbackAnalysis(pipeline, correlationData);
             }
@@ -72,9 +78,105 @@ public class AnalyzerAgent {
     }
 
     /**
+     * 메트릭 히스토리에서 최근 10건의 핵심 메트릭 추이를 텍스트로 구성.
+     * 10건 이상이면 트렌드 분석도 추가.
+     */
+    private String buildTimeSeriesContext() {
+        List<io.sessioncast.autofix.model.Metric> history = pipelineService.getMetricHistory(10, null);
+        if (history.isEmpty()) return "히스토리 없음 (스냅샷 기반 분석)";
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("시간 | cpu | actx | rtime | tps | dbconn_act | act_method | act_httpc | error_rate\n");
+        sb.append("--- | --- | --- | --- | --- | --- | --- | --- | ---\n");
+        for (var m : history) {
+            Map<String, Object> raw = m.getRawData();
+            if (raw == null) continue;
+            String time = m.getCollectedAt() != null
+                    ? java.time.format.DateTimeFormatter.ofPattern("HH:mm:ss")
+                        .withZone(java.time.ZoneId.systemDefault())
+                        .format(m.getCollectedAt())
+                    : "?";
+            sb.append(String.format("%s | %s | %s | %s | %s | %s | %s | %s | %s\n",
+                    time,
+                    raw.getOrDefault("cpu", "-"),
+                    raw.getOrDefault("actx", "-"),
+                    raw.getOrDefault("rtime", "-"),
+                    raw.getOrDefault("tps", "-"),
+                    raw.getOrDefault("dbconn_act", "-"),
+                    raw.getOrDefault("act_method", "-"),
+                    raw.getOrDefault("act_httpc", "-"),
+                    raw.getOrDefault("error_rate", raw.getOrDefault("error", "-"))
+            ));
+        }
+
+        // 트렌드 감지: 히스토리 3건 이상이면 변화량 계산
+        if (history.size() >= 3) {
+            sb.append("\n### 트렌드 감지 (최초 → 최신)\n");
+            var first = history.get(0).getRawData();
+            var last = history.get(history.size() - 1).getRawData();
+            if (first != null && last != null) {
+                for (String key : List.of("cpu", "actx", "rtime", "tps", "dbconn_act")) {
+                    double v1 = toDouble(first.get(key));
+                    double v2 = toDouble(last.get(key));
+                    if (v1 > 0 || v2 > 0) {
+                        double change = v2 - v1;
+                        double pct = v1 > 0 ? (change / v1) * 100 : 0;
+                        String trend = change > 0 ? "↑ 증가" : change < 0 ? "↓ 감소" : "→ 유지";
+                        sb.append(String.format("  %s: %.1f → %.1f (%s, %.1f%%)\n", key, v1, v2, trend, pct));
+                    }
+                }
+            }
+        }
+
+        return sb.toString();
+    }
+
+    private double toDouble(Object val) {
+        if (val instanceof Number) return ((Number) val).doubleValue();
+        if (val instanceof String) { try { return Double.parseDouble((String) val); } catch (Exception e) {} }
+        return 0.0;
+    }
+
+    /**
+     * MXQL로 슬로우 트랜잭션/HTTP 호출/SQL 정보 조회.
+     */
+    private String fetchTransactionTop() {
+        StringBuilder sb = new StringBuilder();
+        long now = System.currentTimeMillis();
+        long fiveMinAgo = now - 300_000;
+
+        // 1) app_counter (기본 메트릭)
+        queryMxql(sb, "app_counter", fiveMinAgo, now);
+
+        // 2) app_host_resource (호스트 리소스)
+        queryMxql(sb, "app_host_resource", fiveMinAgo, now);
+
+        return sb.toString();
+    }
+
+    private void queryMxql(StringBuilder sb, String category, long stime, long etime) {
+        try {
+            String mxql = "CATEGORY " + category + "\nTAGLOAD\nSELECT";
+            Map result = reactor.core.publisher.Mono.fromCallable(() ->
+                    whatapClient.executeMxql(mxql, stime, etime)
+                            .timeout(Duration.ofSeconds(10))
+                            .block()
+            ).subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic())
+             .block(Duration.ofSeconds(15));
+            if (result != null && !result.isEmpty()) {
+                String str = result.toString();
+                sb.append(String.format("[%s] %s\n", category, str.substring(0, Math.min(300, str.length()))));
+            }
+        } catch (Exception e) {
+            log.debug("Analyzer: MXQL {} query failed: {}", category, e.getMessage());
+        }
+    }
+
+    /**
      * SessionCast Relay → Request analysis from local Claude Code
      */
-    private void performLlmAnalysis(Pipeline pipeline, Map<String, Object> correlationData) {
+    private void performLlmAnalysis(Pipeline pipeline, Map<String, Object> correlationData,
+                                      String timeSeriesData, String txTopData) {
         String issueType = pipeline.getIssueType();
         double value = pipeline.getIssue().getValue();
         double threshold = pipeline.getIssue().getThreshold();
@@ -82,34 +184,74 @@ public class AnalyzerAgent {
         Metric latest = pipelineService.getLatestMetric();
         String metricsSnapshot = formatMetrics(latest);
 
-        // Build prompt for Claude
-        String prompt = String.format("""
-                당신은 서버 모니터링 전문가입니다. 다음 이슈를 분석해주세요.
-
+        // Build prompt with time series + correlation context
+        StringBuilder promptBuilder = new StringBuilder();
+        promptBuilder.append(String.format("""
                 ## 감지된 이슈
-                - 타입: %s
-                - 현재 값: %.1f (임계값: %.1f)
+                타입: %s | 현재: %.1f | 임계값: %.1f
 
-                ## 현재 서버 메트릭
+                ## 현재 메트릭 스냅샷
                 %s
 
-                ## 요청사항
-                1. 근본 원인(Root Cause)을 한 문장으로 설명
-                2. 관련 메트릭 상관관계 분석
-                3. 신뢰도(0.0~1.0) 제시
-                4. 권장 조치를 구체적으로 제시
+                ## 최근 5분 메트릭 추이 (30초 간격)
+                %s
+                """, issueType, value, threshold, metricsSnapshot, timeSeriesData));
 
-                반드시 한국어로, 아래 JSON 형식으로 응답해주세요:
-                {"rootCause": "한국어로 근본 원인 설명", "confidence": 0.85, "correlatedMetrics": ["metric:value", ...], "recommendation": "한국어로 권장 조치 설명"}
-                """,
-                issueType, value, threshold, metricsSnapshot);
+        if (txTopData != null && !txTopData.isBlank()) {
+            promptBuilder.append("\n## 추가 조회 데이터\n").append(txTopData).append("\n");
+        }
+
+        // 과거 피드백 반영
+        String feedbackCtx = feedbackService.buildFeedbackContext(issueType);
+        if (!feedbackCtx.isBlank()) {
+            promptBuilder.append(feedbackCtx);
+        }
+
+        promptBuilder.append("""
+
+                ## 분석 요청
+                위 데이터를 기반으로 연관 분석을 수행하세요.
+
+                반드시 한국어, 아래 JSON으로 응답. 코드펜스(```) 절대 금지:
+
+                {
+                  "rootCause": "A → B → C 형태의 인과관계 체인으로 근본 원인 설명",
+                  "confidence": 0.85,
+                  "correlatedMetrics": [
+                    "원인메트릭:값 → 결과메트릭:값",
+                    "원인메트릭:값 → 결과메트릭:값"
+                  ],
+                  "reasoning": [
+                    "시계열 추이에서 관찰된 사실과 선후관계",
+                    "메트릭 간 인과관계 추론 근거",
+                    "최종 결론 및 근거의 한계점"
+                  ],
+                  "recommendation": "권장 조치"
+                }
+
+                ### 필드 규칙
+                - rootCause: 반드시 "A → B → C → D" 화살표(→)로 **최소 3단계** 인과관계 체인. 짧게 쓰지 마세요.
+                - correlatedMetrics: 최소 6개. 3단계 이상 체인을 포함할 것.
+                  - 1차 인과: 직접 원인 (예: "tps:215 → actx:502 → cpu:87%")
+                  - 2차 파급: 간접 영향 (예: "rtime:2500ms → apdex:0.68", "dbconn_act:600 → dbconn_idle:400")
+                  - **3단계+ 체인 필수**: 예: "user:1010 → tps:230 → actx:500 → rtime:2500ms"
+                  - 제공된 메트릭 데이터에 있는 **모든 메트릭**(cpucore, dbconn_idle, act_sql, act_socket, txcount, inact_agent, threadpool_queue, host, error 등)을 분석에 참조하고, 이상치가 아니더라도 정상 범위 확인 결과를 reasoning에 포함하세요.
+                - reasoning: 문자열 배열. 3~5개.
+                  - 1번: 시계열 추이 또는 스냅샷에서 관찰된 사실 (모든 핵심 메트릭 값 언급)
+                  - 2번: 메트릭 간 인과관계 추론 (왜 A가 B를 유발했는지)
+                  - 3번: 정상 범위 메트릭 확인 (error, act_sql, threadpool 등이 정상인지)
+                  - 4번: 결론 + 근거의 한계 (데이터 부족 시 명시)
+                - confidence: 시계열 히스토리가 충분하면 0.8+, 스냅샷만이면 0.5~0.7
+                """);
+
+        String prompt = promptBuilder.toString();
 
         String aiProvider = SettingsController.getAiProvider();
         String aiModel = SettingsController.getAiModel();
         pipeline.addLog(Pipeline.Stage.ANALYZER, "LLM 분석 요청 중... (provider: " + aiProvider + ")");
 
         var requestBuilder = LlmChatRequest.builder()
-                .system("당신은 서버 모니터링 전문가입니다. 반드시 한국어로 JSON만 응답하세요.")
+                .system("서버 모니터링 전문가. 시계열 데이터에서 메트릭 간 선후관계와 인과관계를 분석. 한국어 JSON만 응답. 코드펜스 금지.")
                 .user(prompt);
         if (aiModel != null && !aiModel.isBlank()) {
             requestBuilder.model(aiModel);
@@ -127,6 +269,9 @@ public class AnalyzerAgent {
                     throw new IllegalStateException("GLM API 토큰이 설정되지 않았습니다");
                 }
                 response = glmService.chat(glmUrl, glmToken, request).get(5, java.util.concurrent.TimeUnit.MINUTES);
+            } else if ("claude-local".equals(aiProvider)) {
+                // Claude Code 로컬 CLI 직접 호출 (토큰 불필요)
+                response = claudeLocalService.chat(request).get(5, java.util.concurrent.TimeUnit.MINUTES);
             } else {
                 // SessionCast Relay 호출
                 if (sessionCastClient == null) {
@@ -168,12 +313,21 @@ public class AnalyzerAgent {
 
     private AnalysisResult parseLlmResponse(String content, Pipeline pipeline) {
         try {
-            // Try to extract JSON from response
+            // Strip code fences if present
             String json = content;
-            int jsonStart = content.indexOf('{');
-            int jsonEnd = content.lastIndexOf('}');
+            if (json.contains("```json")) {
+                int start = json.indexOf("```json") + 7;
+                int end = json.indexOf("```", start);
+                json = (end > start) ? json.substring(start, end).trim() : json.substring(start).trim();
+            } else if (json.contains("```")) {
+                int start = json.indexOf("```") + 3;
+                int end = json.indexOf("```", start);
+                json = (end > start) ? json.substring(start, end).trim() : json.substring(start).trim();
+            }
+            int jsonStart = json.indexOf('{');
+            int jsonEnd = json.lastIndexOf('}');
             if (jsonStart >= 0 && jsonEnd > jsonStart) {
-                json = content.substring(jsonStart, jsonEnd + 1);
+                json = json.substring(jsonStart, jsonEnd + 1);
             }
 
             var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
@@ -182,9 +336,26 @@ public class AnalyzerAgent {
             String rootCause = node.has("rootCause") ? node.get("rootCause").asText() : "LLM 분석 결과";
             double confidence = node.has("confidence") ? node.get("confidence").asDouble() : 0.80;
 
+            // reasoning: 배열이면 join, 문자열이면 그대로
+            List<String> reasoningSteps = new ArrayList<>();
+            if (node.has("reasoning")) {
+                var rNode = node.get("reasoning");
+                if (rNode.isArray()) {
+                    rNode.forEach(n -> reasoningSteps.add(n.asText()));
+                } else {
+                    reasoningSteps.add(rNode.asText());
+                }
+            }
+
             List<String> correlated = new ArrayList<>();
             if (node.has("correlatedMetrics") && node.get("correlatedMetrics").isArray()) {
                 node.get("correlatedMetrics").forEach(n -> correlated.add(n.asText()));
+            }
+
+            Map<String, Object> details = new HashMap<>();
+            details.put("llm_response", content);
+            if (!reasoningSteps.isEmpty()) {
+                details.put("reasoning", reasoningSteps);
             }
 
             return AnalysisResult.builder()
@@ -192,7 +363,7 @@ public class AnalyzerAgent {
                     .confidence(confidence)
                     .correlatedMetrics(correlated)
                     .linkedIssues(findLinkedIssues(pipeline))
-                    .details(Map.of("llm_response", content))
+                    .details(details)
                     .build();
 
         } catch (Exception e) {

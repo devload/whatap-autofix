@@ -36,3 +36,17 @@ dependencies {
 tasks.named('test') {
     useJUnitPlatform()
 }
+
+// Load .env file for bootRun (local dev only, .env is gitignored)
+bootRun {
+    def envFile = file('.env')
+    if (envFile.exists()) {
+        envFile.readLines().each { line ->
+            line = line.trim()
+            if (line && !line.startsWith('#') && line.contains('=')) {
+                def (key, value) = line.split('=', 2)
+                environment key.trim(), value.trim()
+            }
+        }
+    }
+}
